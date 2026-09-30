@@ -1,0 +1,112 @@
+[project]
+name = "buildup-mcp"
+version = "0.0.1"
+description = "MCP server that lets an AI build Teardown-ready voxel models (.vox)."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+authors = [{ name = "SNX830" }]
+keywords = ["teardown", "voxel", "magicavoxel", "vox", "mcp", "modding"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Games/Entertainment",
+  "Typing :: Typed",
+]
+# Runtime dependencies are added milestone by milestone, each with a decision in docs/DECISIONS.md.
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "ruff>=0.16",
+  "mypy>=2.3",
+  "pytest>=9.1",
+  "pytest-cov>=7.1",
+]
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/buildup"]
+
+# ---------------------------------------------------------------------------
+# Quality gate configuration. Changing it to make the gate pass is a decision:
+# record it in docs/DECISIONS.md (see docs/QUALITY_CHECKS.md).
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = [
+  "E", "W",   # pycodestyle
+  "F",        # pyflakes: undefined names, unused imports/variables
+  "I",        # import sorting
+  "N",        # naming
+  "D",        # docstrings
+  "UP",       # modern Python syntax
+  "B",        # bugbear: likely bugs
+  "A",        # shadowing builtins
+  "C4",       # comprehensions
+  "SIM",      # simplifications
+  "PTH",      # pathlib instead of os.path
+  "RET",      # return statements
+  "ARG",      # unused arguments
+  "ERA",      # commented-out code
+  "PL",       # pylint subset
+  "PERF",     # performance anti-patterns
+  "NPY",      # numpy-specific rules
+  "PT",       # pytest style
+  "T20",      # no print (stdout is the MCP protocol channel)
+  "RUF",      # ruff-specific, including unused noqa
+  "PGH",      # no blanket type: ignore / noqa
+]
+ignore = [
+  "D105",     # docstrings on magic methods
+  "D107",     # docstring on __init__ (document the class instead)
+  "PLR2004",  # magic values: too noisy for voxel coordinates and format constants
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "PLR2004", "ARG"]
+"scripts/**" = ["T20"]  # command-line scripts may print
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests", "scripts"]
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool", "possibly-undefined"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+filterwarnings = ["error"]
+markers = [
+  "game: needs a local Teardown installation (skipped otherwise)",
+  "slow: slow test",
+]
+
+[tool.coverage.run]
+source = ["buildup"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_covered = true
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "\\.\\.\\.",
+]

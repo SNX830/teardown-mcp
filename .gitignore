@@ -1,0 +1,32 @@
+# --- Third-party material kept locally for analysis only: NEVER commit ---
+/mods-examples/
+/MagicaVoxel*/
+
+# --- Local working area: MCP projects, exported mods, previews ---
+/workspace/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+*.egg-info/
+
+# --- Tool caches and reports ---
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# --- Claude Code personal settings (shared settings live in .claude/settings.json) ---
+.claude/settings.local.json

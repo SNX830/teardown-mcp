@@ -1,0 +1,8 @@
+# Normalize text files to LF in the repository (the project is developed on Windows, CI also runs on Linux).
+* text=auto eol=lf
+
+# Binary assets: never touch line endings or try to diff them.
+*.vox binary
+*.png binary
+*.jpg binary
+*.ogg binary

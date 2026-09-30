@@ -28,10 +28,12 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
   before an installation do not see the new PATH: open a new terminal.
 - Teardown install: `C:\Program Files (x86)\Steam\steamapps\common\Teardown`.
 
+- 2026-09-30 — CI fixed (actions pinned to commit SHAs; `setup-uv` has no floating major tag) and green
+  on Windows/Linux × Python 3.12/3.13. Lesson: check that an action version/tag exists before using it.
+
 ## Next steps
 
-1. Check that CI is green on GitHub (Windows and Linux).
-2. Start milestone 0.1.0 (`voxio` + `palette`).
+1. Start milestone 0.1.0 (`voxio` + `palette`).
 
 ## Open questions for Nathan
 

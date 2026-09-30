@@ -15,8 +15,10 @@ jobs:
         os: [windows-latest, ubuntu-latest]
         python: ["3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10
+      # Actions are pinned to full commit SHAs (tags can be moved); the comment gives the version.
+      # setup-uv publishes no floating major tag, so a full version is required anyway.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: ${{ matrix.python }}
       - name: Install project and dev dependencies

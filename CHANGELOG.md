@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Fixed
+- CI: `astral-sh/setup-uv` has no `v10` tag; actions are now pinned to full commit SHAs.
+
 ## [0.0.1] - 2026-09-30
 
 ### Added

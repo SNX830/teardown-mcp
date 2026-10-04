@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest]
-        python: ["3.12", "3.13"]
+        python: ["3.12", "3.13", "3.14"]
     steps:
       # Actions are pinned to full commit SHAs (tags can be moved); the comment gives the version.
       # setup-uv publishes no floating major tag, so a full version is required anyway.

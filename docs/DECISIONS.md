@@ -65,3 +65,24 @@ repository is **`teardown-mcp`** so people searching for a Teardown MCP find it.
 LICENSE says "Copyright (c) 2026 SNX830". An AI cannot hold copyright (human authorship is required in
 the US and France), so Claude is not named there; its contribution is credited in the README and by the
 `Co-Authored-By` trailer on commits.
+
+## D-015 — Runtime dependency: numpy (>= 2.2)
+Added in 0.1.0 for voxel grids (`uint8` arrays indexed `[x, y, z]`, D-004) and fast `.vox` encoding
+and decoding. Mature, BSD-licensed, ships type hints.
+
+## D-016 — Palette defaults
+Unused palette slots are written as mid-grey (128, 128, 128). The default finish is transparent glass
+for the glass material and matte for every other material, so that "glass" behaves as an AI user
+expects without extra arguments.
+
+## D-017 — Unsupported format variants are refused explicitly, never guessed
+When a file uses something whose meaning is not verified (Teardown's `TDCZ` voxel chunk, rotated
+named objects), the reader raises a specific error (`TeardownCompressedError`,
+`UnsupportedRotationError`) instead of producing a possibly wrong model. Support is added once the
+meaning is verified (rule 3 of AGENTS.md).
+
+## D-018 — Object names
+Names we create or import: words of letters, digits, `_`, `.`, `-` separated by single spaces, 1 to
+64 characters (`OBJECT_NAME_PATTERN`). Spaces are allowed because official files use them a lot
+("window 1"). Other characters (`:`, `,`, quotes, backslash, non-ASCII) are refused with
+`InvalidObjectNameError`: they are rare and risky in XML attributes and file listings.

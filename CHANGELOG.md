@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-04
+
 ### Added
 - `buildup.palette`: the Teardown materials and their palette index ranges, rendering finishes
   (matte, metal, glass, emissive) and a palette allocator that picks indices in the right material

@@ -2,10 +2,9 @@
 
 Hand-off notes between sessions. Update at the end of every session (see `AGENTS.md` §4).
 
-- **Current version:** 0.0.1 (tag `v0.0.1`)
-- **Current milestone:** 0.1.0 — .vox I/O and Teardown palette (done on branch
-  `feat/voxio-palette`, MagicaVoxel test passed; not yet committed/released)
-- **Next milestone:** 0.2.0 — Calibration in game
+- **Current version:** 0.1.0 (tag `v0.1.0`)
+- **Current milestone:** 0.2.0 — Calibration in game (not started)
+- **Last milestone:** 0.1.0 — .vox I/O and Teardown palette (released 2026-10-04)
 - **Repository:** https://github.com/SNX830/teardown-mcp (public)
 
 ## Done
@@ -40,9 +39,8 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
 
 ## Next steps
 
-1. Commit `feat/voxio-palette`, merge into `main`, release 0.1.0 — when Nathan asks.
-2. Milestone 0.2.0: scripted calibration mod (asymmetric prop + box car with cylinder wheels).
-3. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
+1. Milestone 0.2.0: scripted calibration mod (asymmetric prop + box car with cylinder wheels).
+2. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
 
 ## Open questions for Nathan
 

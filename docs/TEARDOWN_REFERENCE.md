@@ -6,7 +6,10 @@ here; add new facts with their source (rule 3 in `AGENTS.md`).
 | Status | Meaning |
 |---|---|
 | `DOC` | Stated in the official modding documentation (https://www.teardowngame.com/modding/) |
-| `FILES` | Observed in official game files (Teardown install: `data/`, `mods/vehiclepack`, `mods/assetpack`) |
+| `FILES` | Observed in official game files (Teardown install: `data/`, `mods/` built-in mods, `dlcs/`) |
+| `SPEC` | Stated in the official .vox specification (github.com/ephtracy/voxel-model) |
+| `REF` | Documented by the open-source reference implementation `ogt_vox` (MIT, opengametools) |
+| `MV` | Verified visually in MagicaVoxel 0.99.7.2 with a file written by our code (says nothing about Teardown itself) |
 | `DEDUCED` | Inferred from official files, consistent but not directly stated; must be confirmed in game |
 | `UNVERIFIED` | Hypothesis; must not be relied on without a test |
 
@@ -35,9 +38,39 @@ Details:
 - `FILES` The object name used by XML `object="..."` is the `_name` attribute of the `nTRN` node.
 - `FILES` Several named objects may point to the same model (official wheels share one model).
 - `FILES` Color index 0 means empty. In `RGBA`, the color of index *i* is stored at position *i − 1*.
-- `FILES` Official files sometimes rotate objects in the scene graph (`_r` = 17 or 33 on wheels).
-  `UNVERIFIED` how Teardown applies `_r` to objects referenced by name. Our writer always writes
-  identity rotations (decision D-003) and bakes rotations into the voxels.
+- `SPEC` Binary layout of `nTRN`, `nGRP`, `nSHP`, `MATL`, `LAYR`, `NOTE`, `IMAP` and of the packed
+  rotation byte `_r` (bits 0-1 / 2-3: column of the non-zero entry of rows 0 / 1; bits 4, 5, 6: signs
+  of rows 0, 1, 2). Identity is `_r = 4`. In `RGBA`, "color [0-254] are mapped to palette index
+  [1-255]".
+- `REF` Rotation convention: the rows stored in `_r` act on column vectors, `v' = R · v` (ogt_vox
+  swizzles the stored rows into the columns of its row-vector matrices). Transforms compose from
+  parent to child: world rotation `R_parent · R_child`, world translation `R_parent · t_child +
+  t_parent`.
+- `REF` A model's position `_t` is the position of its **pivot**, located at `floor(size / 2)` in model
+  coordinates (so the minimum corner is at `_t - floor(size / 2)` for an unrotated model).
+  `MV` 2026-10-04 (0.1.0 sample): a 3×3×3 and a 4×4×4 object written with this rule touch exactly,
+  sit on the same plate and are flush on their −Z faces; axis bars meet exactly where placed.
+- `FILES` Official files rotate objects in the scene graph (for example `_r` = 17 or 33, and `_r = 1`
+  on saloon car wheels, which is a *reflection*: determinant −1), including whole car
+  bodies: the Castanet body model is 57 × 24 × 13 (length along MagicaVoxel X) with `_r = 17`, while
+  the saloon car body is 21 × 44 × 13 unrotated. Both cars look right in game, so `DEDUCED` Teardown
+  applies `_r`. Our writer still writes identity rotations only (decision D-003) and bakes rotations
+  into the voxels; our reader refuses to convert rotated named objects until 0.8.0.
+- `FILES` Root `nTRN` has layer -1 and no frame attributes; named object transforms mostly use layer 0
+  (other layers occur, e.g. the saloon car wheels use layer 1); `MATL` ids are 1 to 256; official
+  version-150 car files have 8 `LAYR` chunks named "0" to "7".
+- `FILES` Shape nodes can be shared: several transforms may point to the same `nSHP` (instancing), and
+  a group may list the same child several times (11 official files). The reader yields one instance
+  per transform path and visits a group's duplicate children once.
+- `FILES` Object names often contain spaces ("window 1"): 1 001 of 17 670 named objects; a few use
+  other characters (`,` `:` `'` `\` and non-ASCII). See decision D-018 for the names we accept.
+- `FILES` Variants in official game files (3 398 `.vox` files under `data/`, `mods/`, `dlcs/`, read
+  2026-10-04):
+  - some `RGBA` chunks hold 255 colors (1020 bytes) instead of 256; the reader accepts both.
+  - 15 files (Cratertown, Cullington, ...) replace `XYZI` with a Teardown-specific `TDCZ` chunk:
+    3 × int32 size followed by a zlib stream that inflates to `size_x × size_y × size_z` bytes (a dense
+    grid of palette indices). `UNVERIFIED` order of the axes in that grid, so the reader refuses these
+    files explicitly (`TeardownCompressedError`) instead of guessing. We never write `TDCZ`.
 
 ## 3. Palette: the index decides the material
 
@@ -60,6 +93,19 @@ Details:
 - `DOC` Hardness (sledge / blowtorch / guns / explosives):
   soft = glass, grass, dirt, plastic, wood, plaster; medium = concrete, brick, weak metal;
   hard = hard masonry, hard metal (explosives only); unbreakable = heavy metal, rock.
+- `FILES` `MATL` key sets in official version-150 files: the most common one (58 % of entries) is
+  `_type _weight _rough _spec _spec_p _ior _att _g0 _g1 _gw _flux _ldr` with defaults `_weight 1`,
+  `_rough 0.1`, `_spec 0.5`, `_spec_p 0.5`, `_ior 0.3`, `_att 0`, `_g0 -0.5`, `_g1 0.8`, `_gw 0.7`,
+  `_flux 0`, `_ldr 0`. Our writer uses this set. Other entries use shorter sets (`_g _ior _rough ...`).
+- `FILES` Emissive `_flux` values in official files range from 0 to 4 (2 is the most common).
+- `DEDUCED` `MATL` keys (spec lists `_type`, `_weight`, `_rough`, ... without semantics): `_weight` is
+  the main slider of each type: metallic for `_metal`, transparency for `_glass` (official windows use
+  0.5), emission for `_emit`; `_flux` is the emissive power.
+- `UNVERIFIED` Which glass `_weight` makes glass opaque: the doc says only "100 or not" matters but
+  not which side is opaque, and official files use 1 on many glass entries. We only write 0.5
+  (transparent windows) and offer no "opaque glass" option.
+  `MV` 2026-10-04: glass written with `_weight 0.5` renders transparent and `_emit` voxels glow in
+  MagicaVoxel's renderer; the palette row names written in `NOTE` are displayed next to the rows.
 - `DOC` Rendering type comes from the MagicaVoxel material (`MATL _type`): metal (the normal case;
   diffuse = metal with max roughness, also fine), glass, emissive. Glass transparency: only "100 or not"
   matters. The appearance never changes the physical material.
@@ -75,6 +121,9 @@ Details:
 - `DOC` Voxels only hold together through **faces**; edge/corner contacts fall apart when damaged.
 - `DOC` Do not enclose soft material inside hard material (it gets stuck and breaks physics).
 - `DOC` When objects overlap in one `.vox` loaded as a whole, the newest object wins.
+  `MV` MagicaVoxel's outline lists the last object written by us at the top, i.e. as the newest.
+  `DEDUCED` therefore later objects in our files win overlaps in Teardown. Avoid overlaps until
+  confirmed in game.
 
 ## 5. Axes, origin, orientation
 

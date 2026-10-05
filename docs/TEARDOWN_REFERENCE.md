@@ -10,6 +10,7 @@ here; add new facts with their source (rule 3 in `AGENTS.md`).
 | `SPEC` | Stated in the official .vox specification (github.com/ephtracy/voxel-model) |
 | `REF` | Documented by the open-source reference implementation `ogt_vox` (MIT, opengametools) |
 | `MV` | Verified visually in MagicaVoxel 0.99.7.2 with a file written by our code (says nothing about Teardown itself) |
+| `GAME` | Measured in Teardown by the 0.2.0 calibration probes (Nathan, 2026-10-06, game as installed that day) |
 | `DEDUCED` | Inferred from official files, consistent but not directly stated; must be confirmed in game |
 | `UNVERIFIED` | Hypothesis; must not be relied on without a test |
 
@@ -127,12 +128,55 @@ Details:
 
 ## 5. Axes, origin, orientation
 
-- `DEDUCED` (from `assetpack/.../salooncar.vox` + `.xml`: red emissive rear lights at high MagicaVoxel Y,
-  XML places them at the rear): **MagicaVoxel (x, y, z) -> Teardown (x, z, −y)**.
-- `DEDUCED` The shape origin of an object is **bottom center** (light heights match `(z + 0.5) × 0.1`).
-- `FILES` Vehicles face **−Z** in the vehicle frame (front wheels at negative z), Y is up.
-  Official prefabs put `rot="0 180 0"` on the body `vox`.
-- `UNVERIFIED` Sign of X and the half-voxel offset for odd sizes. -> calibration milestone 0.2.0.
+Calibration results (2026-10-06, protocol C of `docs/TESTING_IN_GAME.md`, screenshots by Nathan).
+"Teardown frame" is the body/vehicle frame: X right, Y up, front is −Z.
+
+- `GAME` **MagicaVoxel (x, y, z) -> Teardown (x, z, −y)**, signs included. The engine keeps the
+  MagicaVoxel grid as stored (`GetShapeSize` returns the MagicaVoxel sizes, e.g. `5 9 7` for our
+  5 × 7 × 9 block) and rotates the shape: its local axes map x -> +x, y -> −z, z -> +y. Marker
+  voxels were found at the predicted grid corners (`corners` lines) and world positions (`probe OK`
+  on the even and rotated blocks; the odd block's probe points fall on voxel boundaries, so its
+  `OK` is not evidence).
+- `GAME` **Origin of a `vox` element** (the point its XML `pos` refers to), on a grid of
+  Teardown-frame size (sx, sy, sz) voxels, measured from the grid's minimum corner:
+  `(floor(sx / 2), 0, sz − floor(sz / 2))` voxels, i.e. the MagicaVoxel pivot `floor(size / 2)` on
+  MagicaVoxel x and y, and the bottom on MagicaVoxel z. Odd sizes therefore have **no half-voxel
+  offset**: with integer positions every voxel stays on the 0.1 m grid. Measured: 5 × 7 × 9 block,
+  shape corner at `pos + (−0.2, 0, +0.4)` (MagicaVoxel corner, = Teardown x min, y min, z max), so
+  x spans [−0.2, 0.3] and z [−0.5, 0.4]; 6 × 8 × 10 block: x [−0.3, 0.3], z [−0.5, 0.5].
+  This settles the `FILES` hint below (saloon car body `pos` x 0.05).
+- `GAME` A `GetShapeLocalTransform` position is the minimum corner of the engine's (MagicaVoxel)
+  grid, in body space (consistent with `data/script/wheels.lua`).
+- `GAME` A prefab places an object loaded with `object="..."` by its XML `pos` only; the object's
+  translation `_t` inside the `.vox` is ignored (our objects sit far from the file origin, the
+  readings were the expected small offsets).
+- `GAME` The engine keeps our palette indices (marker voxels read back as entries 153–156, the
+  concrete base as 73).
+- `GAME` XML `rot="x y z"` (degrees) behaves exactly like `QuatEuler(x, y, z)` and turns the shape
+  around its origin: `rot="0 90 0"` is a right-handed +90° turn about Y (+X -> −Z), and with
+  `rot="90 90 0"` the X turn is applied first, then the Y turn (+X -> −Z, +Y -> +X, +Z -> −Y).
+  Not measured: where the Z angle comes in the order (`script_defs.lua` documents Y, Z, X for
+  `QuatEuler`, i.e. q = qY · qZ · qX, consistent with the measurement).
+- `GAME` Vehicles face **−Z**: driving forward moves the car towards its −Z face. +X is the
+  driver's right (green stripe on the +X face seen on the right from the driver's seat).
+  `FILES` official wheels `fl`/`bl` at −X, `fr`/`br` at +X, `player`/`seat` at X ≈ −0.35; official
+  prefabs put `rot="0 180 0"` on body `vox` elements modelled with the front at +Z.
+- `GAME` The `wheel` `pos` is the axle center and the wheel `vox` origin is at the bottom: wheel
+  vox `pos` = (0, −radius, 0) gives a visible wheel that touches the ground (measured gap 0 cm on
+  all 4 wheels, axle 2–3 cm above its XML position at rest, within `travel="-0.1 0.1"`).
+- `GAME` Children of a `vox` (`location`) are positioned relative to the vox origin: the location
+  entities and the vehicle's own driver, exhaust and vital positions read exactly the intended
+  body-frame positions. Only the translation was measured (our body vox has no `rot`);
+  `DEDUCED` from `salooncar.xml` (rear lights at local z −2.1 in a vox with `rot="0 180 0"`) that
+  children also follow the vox rotation.
+- `GAME` The exhaust smoke came out at the rear right, where the `exhaust` location was (x +0.5,
+  z +1.9) with an identity rotation.
+- `GAME` A vehicle without a `sound` attribute still has an engine sound; without rig locations
+  the driver is shown near the `player` location (our calibration driver sat on the roof, the
+  location being above the body; the exact offset was not measured).
+- `FILES` (historical hint, now explained by the origin rule) The saloon car body is 21 voxels wide
+  and its vox has `pos` x `0.05` with `rot="0 180 0"`: with the floor origin and the 180° turn the
+  0.05 centers the body between its wheels.
 
 ## 6. XML (for manifests, reference tools and validators)
 
@@ -154,17 +198,57 @@ Details:
 - `DOC` Paths: `MOD/...` inside the mod; `FILES` `BUILT-IN/...` references game assets (allowed,
   used by many mods; nothing is redistributed).
 - `FILES` `spawn.txt`: one `path/to/prefab.xml : Category/Name` per line.
+  `GAME` A plain-text category works: our objects were spawned from `Buildup/Calibration prop`
+  and `Buildup/Calibration car` of a local mod in `Documents\Teardown\mods`.
 - `FILES` Local mods folder: `%USERPROFILE%\Documents\Teardown\mods`.
 - `FILES` Game log: `%LOCALAPPDATA%\Teardown\log.txt`, lines like
   `... ERROR <id> [NoTag|Loading] File not found ...`.
 - `FILES` Lua API definitions: `<install>/data/script_defs.lua` (and `voxscript_defs.lua`). API v2 splits
   client/server; the log warns about deprecated patterns ("won't work in v2").
 
+- `DOC` `info.txt` keys: `name`, `author`, `description`, `tags` (comma-separated, among Map,
+  Gameplay, Asset, Vehicle, Tool). `FILES` official mods also use localized keys (`en_name`, ...),
+  the tag `Spawn` (`proppack`, `vehiclepack`) and many have `version = 2` (meaning not documented).
+  Spawn packs without a `version` line: `proppack`, `vehiclepack`, and `merlin`, whose spawnable
+  prefab runs a `#version 2` script.
+- `DOC` Static objects become dynamic when spawned from the spawn menu.
+- `FILES` Spawn packs: `spawn.txt` lines point to prefab XML files relative to the mod folder; the
+  prefab root is `<prefab version="...">` > `<group>`.
+
+## 7b. Lua scripts (for probes and, later, the reference tools)
+
+- `FILES` A script file whose first line is `#version 2` uses API v2: callbacks are
+  `client.init()`, `client.tick()`, `server.init()`, ... (official `firehydrant.lua`, `doors.lua`).
+  Files without the line use API v1 (`init()`, `tick()`, `draw()`, official `debuginfo` mod).
+  The log warns when v1 scripts call API functions before `init` ("won't work in v2").
+- `FILES` A `<script file="MOD/...">` element can wrap `vox`, `body` and `vehicle` elements
+  (official prefabs); `FindShape(tag)` / `FindVehicle(tag)` without the `global` argument search
+  the script's scope (`script_defs.lua`).
+- `FILES` (`data/script/wheels.lua`) A shape's local transform is the minimum corner of its voxel
+  grid: the official script computes a shape's center as
+  `st.pos + rotate(st, (size_x, size_y, size_z) × 0.05)`.
+- `FILES` (`data/level/factory/script/paintboat.lua`) `GetShapeMaterialAtIndex` returns the
+  material type first (empty string for an empty voxel) and the color as components 0 to 1.
+- `FILES` Vectors are plain Lua tables indexed 1 to 3 (`debuginfo` reads `hitPoint[1]`);
+  transforms are `{pos = vec, rot = quat}`.
+- `FILES` (`data/level/carib/script/turret.lua`) The official turret script converts location
+  transforms to body space once, at init. `UNVERIFIED` whether location entities follow their body
+  afterwards. `script_defs.lua`: `GetVehicleDriverPos`, `GetVehicleExhaustTransforms` and
+  `GetVehicleVitalTransforms` return positions "in local space of the vehicle" (the driver
+  position is documented "in vehicle space").
+- `FILES` (`script_defs.lua`) Functions used by the calibration probes: `GetShapeSize` (voxels and
+  voxel scale), `GetShapeLocalTransform` (in body space), `GetShapeBody`, `GetBodyTransform`,
+  `GetShapeBounds` (world AABB), `GetShapeMaterialAtIndex` (0-based grid index; last return value
+  is the palette entry), `GetShapeMaterialAtPosition`, `QueryRejectVehicle` + `QueryRaycast`,
+  `QuatEuler(x, y, z)` (degrees), `QuatRotateVec`, `TransformToParentPoint`,
+  `TransformToLocalPoint`, `DebugWatch` (up to 32 values on screen), `DebugTransform`.
+
 ## 8. Open questions (need in-game tests)
 
-- X sign and half-voxel pivot offset (§5).
 - Handling of `nTRN _r` for named objects (§2).
 - Whether wheel `vox` should use `collide="false"` (official files are inconsistent).
 - Hinge axis convention of `joint rot`.
-- Whether custom categories in `spawn.txt` display correctly (official files use localization keys).
+- XML `rot`: position of the Z angle in the order (X before Y is measured, §5).
+- Whether children of a `vox` follow the vox rotation (translation measured, §5).
+- Whether location entities follow their body after spawn (`turret.lua` hint, §7b).
 - What `teardown_modtest.exe` (in the install folder) does; could it load a mod from the command line?

@@ -8,6 +8,7 @@ from buildup.voxio.axes import (
     pivot,
     size_to_magica,
     translation_to_origin,
+    xml_origin,
 )
 
 
@@ -57,3 +58,19 @@ def test_translation_of_a_cube_at_the_origin() -> None:
     # A 2x2x2 Teardown cube at the origin occupies MagicaVoxel x 0..1, y -2..-1, z 0..1;
     # its pivot is floor(size / 2) = (1, 1, 1) from the minimum corner.
     assert origin_to_translation((0, 0, 0), (2, 2, 2)) == (1, -1, 1)
+
+
+def test_xml_origin_measured_in_game() -> None:
+    # Calibration 0.2.0: the 5 x 7 x 9 block spans x [-0.2, 0.3] and z [-0.5, 0.4] m around its
+    # XML pos; the 6 x 8 x 10 block spans x [-0.3, 0.3] and z [-0.5, 0.5] m.
+    assert xml_origin((5, 7, 9)) == (2, 0, 5)
+    assert xml_origin((6, 8, 10)) == (3, 0, 5)
+    assert xml_origin((16, 6, 36)) == (8, 0, 18)
+    assert xml_origin((1, 1, 1)) == (0, 0, 1)
+
+
+def test_xml_origin_is_the_magicavoxel_pivot_at_the_bottom() -> None:
+    for size in [(1, 1, 1), (2, 3, 4), (5, 7, 9), (6, 8, 10), (255, 1, 256)]:
+        # Grid with its minimum corner at the origin: the MagicaVoxel pivot (x, y) is at _t.
+        t = origin_to_translation((0, 0, 0), size)
+        assert xml_origin(size) == (t[0], 0, -t[1])

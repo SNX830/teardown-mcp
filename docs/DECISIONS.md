@@ -86,3 +86,17 @@ Names we create or import: words of letters, digits, `_`, `.`, `-` separated by 
 64 characters (`OBJECT_NAME_PATTERN`). Spaces are allowed because official files use them a lot
 ("window 1"). Other characters (`:`, `,`, quotes, backslash, non-ASCII) are refused with
 `InvalidObjectNameError`: they are rare and risky in XML attributes and file listings.
+
+## D-019 — In-game calibration by measurement (Lua probes), not by eye
+Context: milestone 0.2.0 must confirm axes, origin, half-voxel offset and wheel placement. Half a
+voxel is 5 cm, too small to judge reliably by eye. Decision: the calibration prefabs carry
+read-only Lua probes (API v2, `client.tick`) that display what the engine computed (grid sizes,
+shape transforms, palette entries at grid corners, world-space probes, wheel/ground gaps), and
+Nathan only takes screenshots plus a few simple visual checks (driving direction, right side,
+ground contact). The XML of the calibration mod is written by hand from
+`docs/TEARDOWN_REFERENCE.md`, not by a generator, so the test checks the conventions themselves.
+Markers are recognised by color, not by palette entry number (whether the engine keeps our
+indices was unverified; measured 2026-10-06: it keeps them). Consequences: `lupa` (Lua 5.1 in
+Python, MIT) becomes a **dev** dependency so that `tests/test_calibration_probes.py` runs the probes against a mock engine in the
+quality gate; this proves the scripts run and discriminate the hypotheses, not how the real engine
+behaves. Tests import development scripts through pytest's `pythonpath = ["scripts"]`.

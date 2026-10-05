@@ -2,9 +2,9 @@
 
 Hand-off notes between sessions. Update at the end of every session (see `AGENTS.md` §4).
 
-- **Current version:** 0.1.0 (tag `v0.1.0`)
-- **Current milestone:** 0.2.0 — Calibration in game (accepted 2026-10-06; release waiting for Nathan's go)
-- **Last milestone:** 0.1.0 — .vox I/O and Teardown palette (released 2026-10-04)
+- **Current version:** 0.2.0 (tag `v0.2.0`)
+- **Current milestone:** 0.3.0 — Modelling core, preview and inspection (not started)
+- **Last milestone:** 0.2.0 — Calibration in game (released 2026-10-06)
 - **Repository:** https://github.com/SNX830/teardown-mcp (public)
 
 ## Done
@@ -58,8 +58,7 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
 
 ## Next steps
 
-1. Release 0.2.0 when Nathan asks (`docs/VERSIONING.md`), then milestone 0.3.0 (modelling core,
-   preview, inspection). The future XML skeleton must place `vox` elements with
+1. Milestone 0.3.0 (modelling core, preview, inspection). The future XML skeleton must place `vox` elements with
    `buildup.voxio.xml_origin` (measured rule, no half voxel).
 2. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
 
@@ -70,8 +69,8 @@ None blocking.
 ## Manual tests pending
 
 None. Last result: **0.2.0 calibration passed** (2026-10-06, protocol C, screenshots by Nathan).
-Every conclusive probe line `OK` (the odd block's probe is not conclusive); engine grid = MagicaVoxel grid rotated so that MagicaVoxel (x, y, z) ->
-Teardown (x, z, -y); odd block `pos-xml` `-0.200 0.000 0.400` = MagicaVoxel-pivot rule (no half
+Every conclusive probe line `OK` (the odd block's probe is not conclusive); engine grid =
+MagicaVoxel grid rotated so that MagicaVoxel (x, y, z) -> Teardown (x, z, -y); odd block `pos-xml` `-0.200 0.000 0.400` = MagicaVoxel-pivot rule (no half
 voxel); `ROT`/`ROT2` match `QuatEuler`; car: wheels gap 0 cm, axle +2 to +3 cm at rest, locations
 exact (entity and vehicle API). Driving: forward towards the white lights, green stripe on the
 right, wheels on the ground and steering, exhaust smoke rear right, driver visible (sitting on the

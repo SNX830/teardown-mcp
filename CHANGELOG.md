@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-06
+
 ### Added
 - `scripts/make_calibration_mod.py`: generates the 0.2.0 calibration mod (a prop with axis
   markers and a box car with four cylinder wheels, hand-written XML, read-only Lua probes that

@@ -3,7 +3,7 @@
 Hand-off notes between sessions. Update at the end of every session (see `AGENTS.md` §4).
 
 - **Current version:** 0.1.0 (tag `v0.1.0`)
-- **Current milestone:** 0.2.0 — Calibration in game (not started)
+- **Current milestone:** 0.2.0 — Calibration in game (accepted 2026-10-06; release waiting for Nathan's go)
 - **Last milestone:** 0.1.0 — .vox I/O and Teardown palette (released 2026-10-04)
 - **Repository:** https://github.com/SNX830/teardown-mcp (public)
 
@@ -30,6 +30,25 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
   more bug (object names ending with a newline were accepted); fixed and tested. 173 tests.
   Format facts added to `docs/TEARDOWN_REFERENCE.md` §2-4 with their sources. Sample file generated
   with `uv run python scripts/make_sample_vox.py` -> `workspace/samples/buildup-sample.vox`.
+- 2026-10-05 — Milestone 0.2.0, step 1: calibration mod generator
+  (`scripts/make_calibration_mod.py`, Lua probe templates in `scripts/calibration/`). Design in
+  D-019: the probes measure in game what the engine did (sizes, shape transforms, palette entries
+  at grid corners, world probes, wheel/ground gap) instead of judging 5 cm by eye. New facts from
+  official files (wheel naming and driver side, wheel vox offsets, Lua API v2) added to
+  `docs/TEARDOWN_REFERENCE.md` §5, §7, §7b. `tests/test_calibration_probes.py` runs the probes
+  against a mock engine (Lua 5.1 through the new dev dependency `lupa`): `OK` when the engine
+  follows our conventions, `MISMATCH` with swapped corners when X is mirrored, `gap +40 cm` when
+  wheels are misplaced. Independent review: changes required (missing third outcome of the
+  half-voxel rule, a half-voxel hint pointing the wrong way, wrong `FILES` status for vox children,
+  markers identified only by palette number, handles searched only once, probe test not kept);
+  all fixed: markers recognised by color, location probes and a two-axis `rot` block added.
+  Re-review: location probe read in the current body frame (locations may stay in the world);
+  fixed (read once after spawn, cross-checked with the vehicle API). Approved after that fix.
+- 2026-10-06 — Calibration run by Nathan: all conventions confirmed, half-voxel question settled
+  (MagicaVoxel pivot rule). Reference §5 rewritten with the `GAME` status; `xml_origin` added.
+  One `DEDUCED` sub-item stays in §5: whether children of a `vox` also follow its `rot` (only the
+  translation was measured). Not needed by the MVP (our skeleton writes no `vox` rotation); to
+  measure with the joints in 0.7.0.
 
 ## Environment notes (Nathan's machine)
 
@@ -39,7 +58,9 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
 
 ## Next steps
 
-1. Milestone 0.2.0: scripted calibration mod (asymmetric prop + box car with cylinder wheels).
+1. Release 0.2.0 when Nathan asks (`docs/VERSIONING.md`), then milestone 0.3.0 (modelling core,
+   preview, inspection). The future XML skeleton must place `vox` elements with
+   `buildup.voxio.xml_origin` (measured rule, no half voxel).
 2. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
 
 ## Open questions for Nathan
@@ -48,7 +69,16 @@ None blocking.
 
 ## Manual tests pending
 
-None. Last result: **0.1.0 MagicaVoxel check passed** (2026-10-04, screenshots by Nathan) on
+None. Last result: **0.2.0 calibration passed** (2026-10-06, protocol C, screenshots by Nathan).
+Every conclusive probe line `OK` (the odd block's probe is not conclusive); engine grid = MagicaVoxel grid rotated so that MagicaVoxel (x, y, z) ->
+Teardown (x, z, -y); odd block `pos-xml` `-0.200 0.000 0.400` = MagicaVoxel-pivot rule (no half
+voxel); `ROT`/`ROT2` match `QuatEuler`; car: wheels gap 0 cm, axle +2 to +3 cm at rest, locations
+exact (entity and vehicle API). Driving: forward towards the white lights, green stripe on the
+right, wheels on the ground and steering, exhaust smoke rear right, driver visible (sitting on the
+roof, where the `player` location was), engine sound present. Interpreted in
+`docs/TEARDOWN_REFERENCE.md` §5. Remove `BuildupCalibration` from the mods folder when done.
+
+Older result: **0.1.0 MagicaVoxel check passed** (2026-10-04, screenshots by Nathan) on
 `workspace/samples/buildup-sample.vox`. Only remark: the red axis bar did not touch the green one; that
 was a placement mistake in `scripts/make_sample_vox.py` (bar started at x=0 instead of x=-1, a 1-voxel
 gap exactly as placed), now fixed. The checklist was:

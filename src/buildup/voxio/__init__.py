@@ -1,5 +1,6 @@
 """Reading and writing MagicaVoxel ``.vox`` files (see docs/TEARDOWN_REFERENCE.md §1-2, §5)."""
 
+from buildup.voxio.axes import xml_origin
 from buildup.voxio.document import (
     SceneInstance,
     TeardownCompressedError,
@@ -36,4 +37,5 @@ __all__ = [
     "objects_from_document",
     "read_vox",
     "write_vox",
+    "xml_origin",
 ]

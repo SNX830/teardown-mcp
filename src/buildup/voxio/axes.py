@@ -2,7 +2,7 @@
 
 - Teardown frame (internal, AGENTS.md §6): X right, Y up, vehicles face -Z.
 - MagicaVoxel frame: Z up.
-- Mapping (docs/TEARDOWN_REFERENCE.md §5, status DEDUCED): MagicaVoxel (x, y, z) -> Teardown
+- Mapping (docs/TEARDOWN_REFERENCE.md §5, status GAME): MagicaVoxel (x, y, z) -> Teardown
   (x, z, -y). Equivalently, Teardown (x, y, z) -> MagicaVoxel (x, -z, y).
 
 Voxel cells: Teardown cell ``z`` covers ``[z, z + 1)``, which maps to MagicaVoxel ``y`` in
@@ -39,6 +39,24 @@ def size_to_magica(size: Vec3) -> Vec3:
 def pivot(size: Vec3) -> Vec3:
     """Pivot of a MagicaVoxel model of the given size: ``floor(size / 2)`` on each axis."""
     return (size[0] // 2, size[1] // 2, size[2] // 2)
+
+
+def xml_origin(size: Vec3) -> Vec3:
+    """Point that a Teardown XML ``vox`` element's ``pos`` refers to, inside its grid.
+
+    Measured in game (docs/TEARDOWN_REFERENCE.md §5, status GAME): the MagicaVoxel pivot
+    ``floor(size / 2)`` on MagicaVoxel x and y, and the bottom on MagicaVoxel z. Odd sizes need no
+    half voxel: with integer positions, every voxel stays on the 0.1 m grid.
+
+    Args:
+        size: Teardown-frame grid size in voxels.
+
+    Returns:
+        Offset of that point from the grid's minimum corner, in voxels (Teardown frame):
+        ``(floor(sx / 2), 0, sz - floor(sz / 2))``.
+    """
+    sx, _, sz = size
+    return (sx // 2, 0, sz - sz // 2)
 
 
 def origin_to_translation(origin: Vec3, size: Vec3) -> Vec3:

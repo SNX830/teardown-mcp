@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- `scripts/make_calibration_mod.py`: generates the 0.2.0 calibration mod (a prop with axis
+  markers and a box car with four cylinder wheels, hand-written XML, read-only Lua probes that
+  show the engine's measurements on screen). Test protocol C in `docs/TESTING_IN_GAME.md`.
+- Development dependency `lupa`: the calibration probes are tested against a mock engine.
+- `buildup.voxio.xml_origin`: where a Teardown XML `vox` `pos` sits inside a grid, as measured in
+  game (no half-voxel offset for odd sizes).
+
+### Changed
+- The MagicaVoxel -> Teardown axis mapping, the `vox` origin rule, XML `rot`, wheel placement and
+  ground contact are now verified in game (`docs/TEARDOWN_REFERENCE.md` §5, status `GAME`).
+
 ## [0.1.0] - 2026-10-04
 
 ### Added

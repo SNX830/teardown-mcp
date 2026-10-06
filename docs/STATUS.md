@@ -3,7 +3,7 @@
 Hand-off notes between sessions. Update at the end of every session (see `AGENTS.md` §4).
 
 - **Current version:** 0.2.0 (tag `v0.2.0`)
-- **Current milestone:** 0.3.0 — Modelling core, preview and inspection (not started)
+- **Current milestone:** 0.3.0 — Modelling core, preview and inspection (accepted 2026-10-06)
 - **Last milestone:** 0.2.0 — Calibration in game (released 2026-10-06)
 - **Repository:** https://github.com/SNX830/teardown-mcp (public)
 
@@ -49,6 +49,20 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
   One `DEDUCED` sub-item stays in §5: whether children of a `vox` also follow its `rot` (only the
   translation was measured). Not needed by the MVP (our skeleton writes no `vox` rotation); to
   measure with the joints in 0.7.0.
+- 2026-10-06 — Milestone 0.3.0 implemented on branch `feat/voxcore-render`: `buildup.voxcore`
+  (shapes as masks, operations, composition, face-connected components) and `buildup.render`
+  (true orthographic and 3/4 views, annotated preview sheet, text inspection with ASCII slices).
+  Conventions in D-021, Pillow recorded in D-020. Orientation of every view tested voxel by
+  voxel. The agent reviewed the sample sheets itself (fixed overlapping labels, unreadable rulers
+  on small models, a cut-off axis gizmo). Independent review: changes required, all fixed:
+  `box` entirely outside the grid filled almost the whole grid (negative slice bound); `hollow`
+  left face-disconnected staircases on curves (now erodes over 26 neighbours, tested on spheres,
+  ellipsoids and open slopes); per-part bounding boxes were computed in a slow loop (now one
+  vectorised pass); errors unified (`RenderError` is a `VoxcoreError`; JSON-like inputs
+  validated); marker labels get leader lines. 319 tests.
+  Timing (Nathan's PC, 128^3 grid, sphere of radius 63 hollowed with thickness 1): connectivity
+  0.3 s, `describe` 0.35 s, full preview sheet about 2 s; a 128^3 checkerboard (1 048 576
+  separate voxels) is analysed in 1.7 s.
 
 ## Environment notes (Nathan's machine)
 
@@ -58,9 +72,11 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
 
 ## Next steps
 
-1. Milestone 0.3.0 (modelling core, preview, inspection). The future XML skeleton must place `vox` elements with
+1. Milestone 0.4.0 (MVP: MCP server).
+2. For 0.4.0: decide where grid sizes are limited (`voxcore.new_grid` has no upper bound; `.vox`
+   objects are limited to 256 per edge) so that a tool call cannot allocate gigabytes. The future XML skeleton must place `vox` elements with
    `buildup.voxio.xml_origin` (measured rule, no half voxel).
-2. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
+3. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
 
 ## Open questions for Nathan
 
@@ -68,7 +84,11 @@ None blocking.
 
 ## Manual tests pending
 
-None. Last result: **0.2.0 calibration passed** (2026-10-06, protocol C, screenshots by Nathan).
+None. Last result: **0.3.0 preview review passed** (2026-10-06, protocol D, Nathan: "tout est
+OK" on `pickup.png`, `gallery.png` and `pickup.txt`; no remark, including on the "chamfer" label
+placed above the wedge in the gallery front view).
+
+Previous result: **0.2.0 calibration passed** (2026-10-06, protocol C, screenshots by Nathan).
 Every conclusive probe line `OK` (the odd block's probe is not conclusive); engine grid =
 MagicaVoxel grid rotated so that MagicaVoxel (x, y, z) -> Teardown (x, z, -y); odd block `pos-xml` `-0.200 0.000 0.400` = MagicaVoxel-pivot rule (no half
 voxel); `ROT`/`ROT2` match `QuatEuler`; car: wheels gap 0 cm, axle +2 to +3 cm at rest, locations

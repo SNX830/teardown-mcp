@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- `buildup.voxcore`: voxel grids in the Teardown frame; shapes as boolean masks (box, cylinder,
+  sphere, ellipsoid, half-space, edge cut, chamfer, wedge); operations (fill, paint, carve, union,
+  subtract, intersect, flip, mirror, hollow, fill enclosed cavities); composition of placed parts;
+  face-connected components (detects voxels that would fall off in Teardown).
+- `buildup.render`: true orthographic views (front, back, left, right, top, bottom) and 3/4 views,
+  assembled into an annotated preview sheet (rulers in meters with Teardown coordinates, side
+  labels, labelled markers, 1 m axis gizmo); text inspection (`describe`: size, extent, materials,
+  palette entries, connectivity; `ascii_slice`: layers as text, oriented like the views).
+- `scripts/make_preview_samples.py`: sample previews for review (protocol D).
+- Runtime dependency: Pillow.
+
 ## [0.2.0] - 2026-10-06
 
 ### Added

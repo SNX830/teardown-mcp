@@ -20,6 +20,7 @@ classifiers = [
 # Runtime dependencies are added milestone by milestone, each with a decision in docs/DECISIONS.md.
 dependencies = [
     "numpy>=2.2",
+    "pillow>=11.0",
 ]
 
 [dependency-groups]

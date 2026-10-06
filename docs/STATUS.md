@@ -2,9 +2,9 @@
 
 Hand-off notes between sessions. Update at the end of every session (see `AGENTS.md` §4).
 
-- **Current version:** 0.2.0 (tag `v0.2.0`)
-- **Current milestone:** 0.3.0 — Modelling core, preview and inspection (accepted 2026-10-06)
-- **Last milestone:** 0.2.0 — Calibration in game (released 2026-10-06)
+- **Current version:** 0.3.0 (tag `v0.3.0`)
+- **Current milestone:** 0.4.0 — MVP: MCP server (not started)
+- **Last milestone:** 0.3.0 — Modelling core, preview and inspection (released 2026-10-06)
 - **Repository:** https://github.com/SNX830/teardown-mcp (public)
 
 ## Done

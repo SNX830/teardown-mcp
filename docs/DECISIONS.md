@@ -100,3 +100,22 @@ indices was unverified; measured 2026-10-06: it keeps them). Consequences: `lupa
 Python, MIT) becomes a **dev** dependency so that `tests/test_calibration_probes.py` runs the probes against a mock engine in the
 quality gate; this proves the scripts run and discriminate the hypotheses, not how the real engine
 behaves. Tests import development scripts through pytest's `pythonpath = ["scripts"]`.
+
+## D-020 — Runtime dependency: Pillow (>= 11.0)
+Added in 0.3.0 for the preview renderer chosen in D-005 (image buffers, polygon drawing for the
+3/4 views, text labels, PNG output). Mature, HPND license (permissive), ships type hints and a
+bundled default font (`ImageFont.load_default(size=...)`), so no system font is needed.
+Tests compare the pure numpy view arrays exactly; annotated images (text) are only checked for
+size and key pixels, because font rendering may differ slightly between platforms.
+
+## D-021 — Preview conventions: true views, Teardown coordinates, text inspection in `render`
+Orthographic views are what a camera outside the model sees, never mirrored: in the front view
+(camera at −Z) the model's right side (+X) is on the image left; the left view puts the front on
+the image left; top and bottom views put the front (−Z) at the top of the image. Every panel says
+which side of the model each image edge shows, and rulers are labelled with Teardown-frame
+coordinates in meters, so an AI can read positions directly. ASCII slices use the same orientation
+as the matching view and one symbol table per model (the same letter means the same palette index
+on every layer). Text inspection (`describe`, `ascii_slice`) lives in `buildup.render` next to the
+image views: both are "views" of a model, and `render` may use `palette` for material names.
+Shapes in `voxcore` are boolean masks combined with numpy operators; grid functions never modify
+their inputs (safe for the undo history planned in 0.4.0).

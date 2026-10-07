@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-07
+
 ### Added
 - MCP server `buildup-mcp` (stdio, official MCP SDK) with 22 tools: projects saved on disk with
   undo; named colors (material + color + finish); parts drawn with boxes, cylinders, ellipsoids,

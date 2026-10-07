@@ -2,9 +2,9 @@
 
 Hand-off notes between sessions. Update at the end of every session (see `AGENTS.md` §4).
 
-- **Current version:** 0.3.0 (tag `v0.3.0`)
-- **Current milestone:** 0.4.0 — MVP: MCP server (implemented on branch `feat/mcp-server`; acceptance test passed 2026-10-07, release pending Nathan's go)
-- **Last milestone:** 0.3.0 — Modelling core, preview and inspection (released 2026-10-06)
+- **Current version:** 0.4.0 (tag `v0.4.0`)
+- **Current milestone:** 0.5.0 — Coherence tools (not started)
+- **Last milestone:** 0.4.0 — MVP: MCP server (released 2026-10-07)
 - **Repository:** https://github.com/SNX830/teardown-mcp (public)
 
 ## Done
@@ -89,9 +89,8 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
 
 ## Next steps
 
-1. Release 0.4.0 when Nathan asks (acceptance passed).
-2. Milestone 0.5.0 (coherence tools: `validate_mod`, `read_game_log`, `lookup_api`).
-3. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
+1. Milestone 0.5.0 (coherence tools: `validate_mod`, `read_game_log`, `lookup_api`).
+2. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
 
 ## Open questions for Nathan
 

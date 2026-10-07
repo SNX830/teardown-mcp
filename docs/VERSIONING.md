@@ -75,6 +75,9 @@ or `docs`, `repo`.
 3. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD` and add a new empty
    `## [Unreleased]` above it.
 4. Set `version = "X.Y.Z"` in `pyproject.toml`, then run `uv sync` so the installed version matches.
+   On Windows `uv sync` cannot replace `buildup-mcp.exe` while an MCP host runs the server from
+   this repository (for example a Claude Code test session started by `.mcp.json`): ask Nathan to
+   close those sessions first; never kill the processes.
 5. Run the quality gate again.
 6. Commit: `chore(release): vX.Y.Z`.
 7. Create an annotated tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`.

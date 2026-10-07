@@ -1,7 +1,7 @@
 # Buildup — an MCP server for Teardown voxel modding
 
-> **Status: pre-alpha (0.4.0 in progress).** The MCP server works for simple vehicles and props;
-> the in-game acceptance test of the MVP is pending. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status: pre-alpha (0.4.0).** The MCP server works for simple vehicles and props: a fresh
+> Claude Code session built a drivable car with it. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Buildup is an [MCP](https://modelcontextprotocol.io/) server that lets an AI assistant (such as Claude
 Code) build **complete, Teardown-ready voxel models**: multi-part `.vox` files using Teardown's material

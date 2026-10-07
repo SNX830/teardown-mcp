@@ -4,6 +4,7 @@ A grid is a ``uint8`` array indexed ``[x, y, z]``: X right, Y up, front is -Z, 1
 Value 0 is empty; 1-255 is a palette index. Grid functions never modify their inputs.
 """
 
+import math
 from collections.abc import Sequence
 from typing import Final, Literal
 
@@ -59,7 +60,7 @@ def as_pair(value: object, what: str) -> tuple[object, object]:
 
 
 def as_number(value: object, what: str, *, positive: bool = False) -> float:
-    """Validate one number (not a bool), optionally strictly positive.
+    """Validate one finite number (not a bool), optionally strictly positive.
 
     Raises:
         VoxcoreError: Otherwise, naming ``what``.
@@ -67,6 +68,8 @@ def as_number(value: object, what: str, *, positive: bool = False) -> float:
     if isinstance(value, bool) or not isinstance(value, int | float | np.number):
         raise VoxcoreError(f"{what} must be a number, got {value!r}")
     number = float(value)
+    if not math.isfinite(number):
+        raise VoxcoreError(f"{what} must be a finite number, got {value!r}")
     if positive and number <= 0:
         raise VoxcoreError(f"{what} must be positive, got {value!r}")
     return number
@@ -91,7 +94,7 @@ def as_vec3(value: object, what: str, *, minimum: int | None = None) -> Vec3:
 
 
 def as_float3(value: object, what: str, *, positive: bool = False) -> tuple[float, float, float]:
-    """Validate three numbers (a tuple or list), optionally each strictly positive.
+    """Validate three finite numbers (a tuple or list), optionally each strictly positive.
 
     Raises:
         VoxcoreError: Otherwise, naming ``what``.
@@ -103,6 +106,8 @@ def as_float3(value: object, what: str, *, positive: bool = False) -> tuple[floa
     ):
         raise VoxcoreError(f"{what} must be three numbers, got {value!r}")
     x, y, z = (float(v) for v in value)
+    if not all(math.isfinite(v) for v in (x, y, z)):
+        raise VoxcoreError(f"{what} must be three finite numbers, got {value!r}")
     if positive and min(x, y, z) <= 0:
         raise VoxcoreError(f"{what} must be three positive numbers, got {value!r}")
     return x, y, z

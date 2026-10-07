@@ -48,7 +48,8 @@ def describe(grid: Grid, *, origin: Vec3 = (0, 0, 0), palette: Palette | None = 
 
     Returns:
         Several lines: size, filled bounds, voxel counts per material and per palette index,
-        and the face-connected parts (more than one part means some voxels will fall off).
+        and the face-connected parts (more than one part means some voxels may fall apart when
+        damaged).
     """
     grid = check_grid(grid)
     origin = as_vec3(origin, "origin")

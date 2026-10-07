@@ -14,6 +14,7 @@ from buildup.voxcore import (
     sphere,
     wedge,
 )
+from buildup.voxcore.grid import as_float3, as_number
 
 
 def test_box_exact_region_and_clipping() -> None:
@@ -175,3 +176,13 @@ def test_edge_cut_validates_faces_and_depths() -> None:
         edge_cut(size, (0, 0, 0), (4, 4, 4), faces, (1, 1))
     with pytest.raises(VoxcoreError, match="faces"):
         wedge(size, (0, 0, 0), (4, 4, 4), faces)
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+def test_numbers_must_be_finite(bad: float) -> None:
+    with pytest.raises(VoxcoreError, match="finite"):
+        as_number(bad, "radius")
+    with pytest.raises(VoxcoreError, match="finite"):
+        as_float3((0, bad, 0), "center")
+    with pytest.raises(VoxcoreError, match="finite"):
+        sphere((4, 4, 4), (2, 2, bad), 1)

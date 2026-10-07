@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-07
+
 ### Added
 - MCP tool `validate_mod`: checks a mod folder (info.txt, spawn.txt, XML syntax and values,
   `MOD/` files and `.vox` objects that exist, vehicle structure, player location) and compares

@@ -2,9 +2,9 @@
 
 Hand-off notes between sessions. Update at the end of every session (see `AGENTS.md` §4).
 
-- **Current version:** 0.4.0 (tag `v0.4.0`)
-- **Current milestone:** 0.5.0 — Coherence tools (implemented on branch `feat/coherence-tools`)
-- **Last milestone:** 0.4.0 — MVP: MCP server (released 2026-10-07)
+- **Current version:** 0.5.0 (tag `v0.5.0`)
+- **Current milestone:** 0.6.0 — Modelling quality (not started)
+- **Last milestone:** 0.5.0 — Coherence tools (released 2026-10-07)
 - **Repository:** https://github.com/SNX830/teardown-mcp (public)
 
 ## Done
@@ -104,10 +104,9 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
 
 ## Next steps
 
-1. Release 0.5.0 when Nathan asks (protocol F passed).
-2. Milestone 0.6.0 (modelling quality; includes the driver seat rig and see-through glass in
+1. Milestone 0.6.0 (modelling quality; includes the driver seat rig and see-through glass in
    previews noted in the 0.4.0 acceptance test).
-3. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
+2. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
 
 ## Open questions for Nathan
 

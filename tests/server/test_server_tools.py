@@ -14,6 +14,7 @@ from PIL import Image
 
 import buildup.project.store as store_module
 from buildup.server import INSTRUCTIONS, create_server
+from buildup.teardown.install import GamePaths
 
 EXPECTED_TOOLS = {
     "create_project",
@@ -38,6 +39,9 @@ EXPECTED_TOOLS = {
     "slice_layers",
     "export_model",
     "teardown_reference",
+    "validate_mod",
+    "read_game_log",
+    "lookup_api",
 }
 
 
@@ -48,7 +52,8 @@ def anyio_backend() -> str:
 
 @pytest.fixture
 async def client(tmp_path: Path) -> AsyncIterator[Client]:
-    async with Client(create_server(tmp_path / "ws"), raise_exceptions=True) as c:
+    server = create_server(tmp_path / "ws", GamePaths(install=None, log=None))
+    async with Client(server, raise_exceptions=True) as c:
         yield c
 
 
@@ -129,7 +134,15 @@ async def test_tools_and_instructions(client: Client) -> None:
     tools = {t.name: t for t in listed.tools}
     for name in ("remove_part", "undo", "export_model"):
         assert hints(tools[name]).destructive_hint is True
-    for name in ("inspect", "slice_layers", "list_projects", "teardown_reference"):
+    for name in (
+        "inspect",
+        "slice_layers",
+        "list_projects",
+        "teardown_reference",
+        "validate_mod",
+        "read_game_log",
+        "lookup_api",
+    ):
         assert hints(tools[name]).read_only_hint is True
     assert hints(tools["preview"]).read_only_hint is False
     draw_box = tools["draw_box"]

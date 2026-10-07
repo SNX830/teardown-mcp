@@ -7,27 +7,21 @@ anything else is a bug and is logged with its traceback.
 
 import io
 import logging
-import threading
-from collections.abc import Callable, Iterator
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Final, Literal
 
 from mcp.server import MCPServer
 from mcp.server.mcpserver import Image
-from mcp.server.mcpserver.exceptions import ToolError
-from mcp.types import TextContent, ToolAnnotations
+from mcp.types import TextContent
 from pydantic import BaseModel, Field
 
 from buildup import __version__
-from buildup.palette import PaletteError
 from buildup.project import (
     WORLD_MAX,
     WORLD_MIN,
     Axle,
     Project,
     ProjectError,
-    ProjectStore,
     Shape,
     WheelLayout,
     box_shape,
@@ -49,15 +43,19 @@ from buildup.render import (
     preview_sheet,
 )
 from buildup.server import text
-from buildup.teardown import AssemblyError, reference
-from buildup.voxcore import VoxcoreError
-from buildup.voxio import VoxFormatError
+from buildup.server.coherence import coherence_tools
+from buildup.server.common import (
+    DESTRUCTIVE,
+    EDIT,
+    READ_ONLY,
+    RENDER,
+    Context,
+    user_errors,
+)
+from buildup.teardown import reference
+from buildup.teardown.install import GamePaths
 
 logger = logging.getLogger(__name__)
-
-#: Errors caused by the arguments or the state of a project: the AI reads the message and can
-#: fix the call. Every other exception is a bug.
-USER_ERRORS: Final = (ProjectError, VoxcoreError, PaletteError, AssemblyError, VoxFormatError)
 
 MAX_SLICES: Final = 8
 
@@ -72,8 +70,10 @@ voxels; points (centers, anchors) are continuous coordinates (voxel i spans i to
 Workflow: create_project -> define_color (materials decide physics) -> add_part + draw_* tools
 -> add_wheels -> set_anchor (player, vital, exhaust) -> preview / inspect (look at the images:
 the views are true views, the front view shows the model's right side on the image left) ->
-export_model -> write info.txt and spawn.txt. Read teardown_reference('workflow') first, and
-teardown_reference('vehicle_xml') before editing XML. Every edit can be undone with undo.
+export_model -> write info.txt and spawn.txt -> validate_mod. Read teardown_reference('workflow')
+first, and teardown_reference('vehicle_xml') before editing XML; lookup_api documents the game's
+Lua functions for scripts. After the user has played, read_game_log shows the game's errors for
+the mod. Every model edit can be undone with undo.
 """
 
 ProjectName = Annotated[str, Field(description="Project name, for example 'red_pickup'.")]
@@ -119,17 +119,6 @@ MaterialName = Literal[
 ViewName = Literal["front", "back", "left", "right", "top", "bottom", "iso_front", "iso_back"]
 Topic = Literal["workflow", "frame", "materials", "vehicle_xml", "prop_xml", "mod_files"]
 
-READ_ONLY: Final = ToolAnnotations(read_only_hint=True, open_world_hint=False)
-EDIT: Final = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
-#: Edits that delete or overwrite (undo can bring a removed part back, not an undone edit).
-DESTRUCTIVE: Final = ToolAnnotations(
-    read_only_hint=False, destructive_hint=True, open_world_hint=False
-)
-#: Reads the model and writes preview.png (a regenerated output) in the project folder.
-RENDER: Final = ToolAnnotations(
-    read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False
-)
-
 
 class AxleSpec(BaseModel):
     """One axle: a left and a right wheel at the same Z."""
@@ -137,43 +126,6 @@ class AxleSpec(BaseModel):
     z: int = Field(description="Z of the axle in voxels (front axles have negative Z).")
     steer: bool = Field(default=False, description="Whether these wheels steer (front axle).")
     drive: bool = Field(default=False, description="Whether the engine drives these wheels.")
-
-
-@contextmanager
-def user_errors() -> Iterator[None]:
-    """Turn the errors an AI can fix into ``ToolError`` (shown to the AI)."""
-    try:
-        yield
-    except USER_ERRORS as error:
-        raise ToolError(str(error)) from error
-    except OSError as error:  # a file busy or not writable: worth telling the AI and the user
-        raise ToolError(f"file error: {error}; the project was not changed, try again") from error
-
-
-class Context:
-    """What every tool needs: the project store, the mods folder and the edit lock.
-
-    Args:
-        workspace: Folder for projects (``workspace/projects``) and exported mods
-            (``workspace/mods``). Never the game's mods folder (decision D-010).
-    """
-
-    def __init__(self, workspace: Path) -> None:
-        self.store = ProjectStore(workspace)
-        self.mods_dir = workspace / "mods"
-        # Tools run in worker threads and hosts call them in parallel; every access to project
-        # files holds this lock (re-entrant, so a locked tool may call ``read``).
-        self.lock = threading.RLock()
-
-    def edit(self, project: str, action: str, change: Callable[[Project], str]) -> str:
-        """Apply ``change`` to a project and save it with an undo step, if it succeeds."""
-        with self.lock, user_errors(), self.store.edit(project, action) as loaded:
-            return change(loaded)
-
-    def read(self, project: str) -> Project:
-        """Load a project (errors become ``ToolError``)."""
-        with self.lock, user_errors():
-            return self.store.load(project)
 
 
 def draw_result(
@@ -190,14 +142,15 @@ def draw_result(
     return result
 
 
-def create_server(workspace: Path) -> MCPServer:
+def create_server(workspace: Path, game: GamePaths | None = None) -> MCPServer:
     """Build the MCP server.
 
     Args:
         workspace: Folder for projects (``workspace/projects``) and exported mods
             (``workspace/mods``). Never the game's mods folder (decision D-010).
+        game: The user's game install and log (read only); detected when ``None``.
     """
-    ctx = Context(workspace)
+    ctx = Context(workspace, game)
     mcp = MCPServer("buildup", instructions=INSTRUCTIONS, version=__version__)
     for register in (
         _project_tools,
@@ -205,6 +158,7 @@ def create_server(workspace: Path) -> MCPServer:
         _assembly_tools,
         _inspection_tools,
         _export_tools,
+        coherence_tools,
     ):
         register(mcp, ctx)
     return mcp

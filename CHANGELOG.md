@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- MCP tool `validate_mod`: checks a mod folder (info.txt, spawn.txt, XML syntax and values,
+  `MOD/` files and `.vox` objects that exist, vehicle structure, player location) and compares
+  vox, wheel and location positions with the Buildup manifests. Official usages found in the
+  game's own mods are accepted.
+- MCP tool `read_game_log`: errors and warnings of Teardown's `log.txt`, filtered by mod
+  (its spawns, loaded scripts and script warnings, which the log names by the end of the script
+  path), with repeated messages grouped. Lua runtime errors are shown on the game screen only,
+  never in the log (verified): the tool tells the AI to ask the user for that text.
+- MCP tool `lookup_api`: searches the Lua API definitions of the local Teardown install
+  (`script_defs.lua`, never copied), with parameters, return values and examples.
+- The Teardown install is found through `TEARDOWN_DIR` or the Steam libraries.
+
+### Fixed
+- Export warnings no longer say that every vehicle needs vital and exhaust locations (official
+  boats and machines have none).
+
 ## [0.4.0] - 2026-10-07
 
 ### Added

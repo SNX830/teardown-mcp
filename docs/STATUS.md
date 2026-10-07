@@ -3,7 +3,7 @@
 Hand-off notes between sessions. Update at the end of every session (see `AGENTS.md` §4).
 
 - **Current version:** 0.4.0 (tag `v0.4.0`)
-- **Current milestone:** 0.5.0 — Coherence tools (not started)
+- **Current milestone:** 0.5.0 — Coherence tools (implemented on branch `feat/coherence-tools`)
 - **Last milestone:** 0.4.0 — MVP: MCP server (released 2026-10-07)
 - **Repository:** https://github.com/SNX830/teardown-mcp (public)
 
@@ -80,6 +80,21 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
   `add_wheels` guidance gave no gap (now half width + 1, like the calibration car); `mirror_part`
   could silently empty a part; non-finite numbers crashed tools; reserved mod names; tool
   annotations. Re-review: approved. 483 tests, coverage 98.7 %.
+- 2026-10-07 — Milestone 0.5.0 implemented on branch `feat/coherence-tools`: `validate_mod`,
+  `read_game_log`, `lookup_api` (decision D-027). Verified: the validator finds nothing on the
+  Petite Rouge mod and the calibration mod; run on every official mod and on Nathan's local
+  mods, its false alarms were traced to official usages and fixed (recorded in reference
+  §6-7); the log reader parses the real `log.txt` (Petite Rouge's spawn lines, no error for
+  it); `lookup_api` reads 781 functions from the local install. 25 MCP tools.
+  Independent review: changes required, all fixed: the mod filter of `read_game_log` missed a
+  mod's Lua errors (the log keeps only the end of script paths) and then said "no error" (now
+  matched through the mod's files, and the empty answer says what cannot be attributed);
+  short folder names matched other mods; `validate_mod` crashed on unknown XML encodings,
+  folders named `*.xml` and incomplete manifests, and gave wrong findings on files with a
+  UTF-8 BOM; it held the project lock while scanning a folder; more official usages were
+  still flagged; `lookup_api` hid names present in both definition files. Re-review:
+  approved; its two small text remarks (the log tool does not take the `local-` id, a mod
+  without spawn.txt is only a note) were fixed before the commit.
 
 ## Environment notes (Nathan's machine)
 
@@ -89,8 +104,10 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
 
 ## Next steps
 
-1. Milestone 0.5.0 (coherence tools: `validate_mod`, `read_game_log`, `lookup_api`).
-2. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
+1. Release 0.5.0 when Nathan asks (protocol F passed).
+2. Milestone 0.6.0 (modelling quality; includes the driver seat rig and see-through glass in
+   previews noted in the 0.4.0 acceptance test).
+3. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
 
 ## Open questions for Nathan
 
@@ -98,7 +115,16 @@ None blocking.
 
 ## Manual tests pending
 
-None. Last result: **0.4.0 MVP acceptance passed** (2026-10-07, protocol E). A fresh Claude
+None. Last result: **0.5.0 protocol F passed with a finding** (2026-10-07). In a Claude Code
+session in `BuildupTest`, `validate_mod` reported the wrong wheel object (`wheel_zz`, listing the
+real objects) and nothing once fixed. In game the broken script showed on screen
+`[string "...ods/Petite Rouge/script/test.lua"]:4: attempt to call global
+'fonction_inexistante' (a nil value)` (the predicted 32-character form), but the error was **not
+in `log.txt`**: the log only had the spawns and `[NoTag|LocalMod]` lines naming the loaded
+script. Fixed before release: `read_game_log` lists those lines and tells the AI that Lua
+runtime errors are on screen only (reference §7, D-027).
+
+Previous result: **0.4.0 MVP acceptance passed** (2026-10-07, protocol E). A fresh Claude
 Code session (Sonnet 5.5, high effort) in `Documents\Perso\BuildupTest` built "Petite Rouge" in
 about 2 minutes with 47 tool calls and no tool error, exported it and wrote `info.txt` and
 `spawn.txt`. In game: listed in the spawn menu, wheels on the ground, turning and steering,

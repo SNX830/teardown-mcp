@@ -158,8 +158,8 @@ def check_assembly(assembly: Assembly) -> list[str]:
             warnings.append(
                 "missing vehicle anchors: "
                 + ", ".join(missing)
-                + " (official vehicles use player, vital and exhaust locations; set them with "
-                "set_anchor)"
+                + " (every drivable official vehicle has a player location and most official cars "
+                "have vital and exhaust; set them with set_anchor)"
             )
     objects = assembly.objects
     for i, a in enumerate(objects):

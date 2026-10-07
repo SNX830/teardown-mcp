@@ -182,3 +182,35 @@ answer only questions about what you want (color, shape...).
   An error message there is what the agent needs.
 - Alternative registration without `.mcp.json` (Claude Code command line, in `BuildupTest`):
   `claude mcp add buildup -- uv run --project C:\Users\snayx\Documents\Perso\Projet\Teardown-MCP buildup-mcp --workspace C:\Users\snayx\Documents\Perso\BuildupTest\workspace`
+
+## F. Coherence tools (milestone 0.5.0)
+
+Goal: check on a real game run that `validate_mod` and `read_game_log` find real mistakes.
+About 10 minutes.
+
+### Steps for Nathan
+
+1. Close any Claude Code session still open in `BuildupTest`, then open a new one there (so it
+   uses the new Buildup version). Paste:
+
+   > Pour un test de Buildup : dans le mod workspace\mods\Petite Rouge, ajoute un script
+   > script/test.lua (première ligne `#version 2`) dont la fonction client.init() appelle une
+   > fonction qui n'existe pas, branche-le dans le prefab avec un élément <script> autour du
+   > véhicule, et change le nom d'objet d'une roue dans le prefab en "wheel_zz". Lance ensuite
+   > validate_mod sur ce mod et montre-moi le résultat.
+
+   Check: the answer lists an ERROR about the object `wheel_zz` (the Lua error cannot be seen
+   before playing). Note whether Claude found the other tools by itself.
+2. Ask Claude to put the right wheel name back (keep the broken script), run `validate_mod`
+   again (no error expected), then copy `workspace\mods\Petite Rouge` into
+   `Documents\Teardown\mods\` (replace the old copy).
+3. In Teardown, spawn Petite Rouge once, then quit the game.
+4. In the same session, paste: "Lis le journal du jeu pour le mod Petite Rouge avec
+   read_game_log et dis-moi ce qui ne va pas."
+   Check: the answer shows the spawn of the car and the loaded script `script/test.lua`, and says
+   that Lua runtime errors are not in the log. Compare with the text shown in the bottom left
+   corner of the game screen (2026-10-07: `[string "...ods/Petite Rouge/script/test.lua"]:4:
+   attempt to call global 'fonction_inexistante' (a nil value)`, absent from `log.txt`).
+5. Report: what `validate_mod` showed at step 1, what `read_game_log` showed at step 4 (copy
+   the text), and whether anything looked wrong. Then ask Claude to remove the test script, or
+   delete the mod copy.

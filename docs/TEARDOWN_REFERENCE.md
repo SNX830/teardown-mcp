@@ -10,7 +10,7 @@ here; add new facts with their source (rule 3 in `AGENTS.md`).
 | `SPEC` | Stated in the official .vox specification (github.com/ephtracy/voxel-model) |
 | `REF` | Documented by the open-source reference implementation `ogt_vox` (MIT, opengametools) |
 | `MV` | Verified visually in MagicaVoxel 0.99.7.2 with a file written by our code (says nothing about Teardown itself) |
-| `GAME` | Measured in Teardown by the 0.2.0 calibration probes (Nathan, 2026-10-06, game as installed that day), or observed by Nathan in the 0.4.0 acceptance test (2026-10-07, "Petite Rouge" car built by a fresh Claude Code session) |
+| `GAME` | Measured in Teardown by the 0.2.0 calibration probes (Nathan, 2026-10-06, game as installed that day), or observed by Nathan in the 0.4.0 acceptance test (2026-10-07, "Petite Rouge" car built by a fresh Claude Code session), or read by an agent in the game log `log.txt` written by Nathan's game (2026-10-07) |
 | `DEDUCED` | Inferred from official files, consistent but not directly stated; must be confirmed in game |
 | `UNVERIFIED` | Hypothesis; must not be relied on without a test |
 
@@ -201,7 +201,23 @@ Calibration results (2026-10-06, protocol C of `docs/TESTING_IN_GAME.md`, screen
 - `FILES` (`data/script_defs.lua`) vehicle params: spring, damping, topspeed, acceleration, strength,
   antispin, antiroll, difflock, steerassist, friction (+ smokeintensity, brokenthreshold);
   wheel: drive, steer, travel; joint types: ball, hinge, prismatic, rope.
-- `FILES` Location tags on vehicles: `player`, `vital`, `exhaust`.
+- `FILES` Location tags on vehicles: `player`, `vital`, `exhaust`. Survey of the official vehicles
+  in `mods/assetpack` and `mods/vehiclepack` (2026-10-07): every one has `player`; cars,
+  trucks and SUVs also have `vital` and `exhaust`; boats, excavators, cranes and some forklifts
+  lack `vital` and/or `exhaust`; boats have no `wheel`. Vehicles of official levels without a
+  `player` location carry the tag `nodrive`.
+- `FILES` Attribute variants in official XML: `rot` with 1 or 2 numbers (`rot="0"`,
+  `rot="0 180"`), `pos` with 2 numbers on 2D elements (`vertex`, `point`). `DEDUCED`: missing
+  components count as 0. Paths in `file` attributes start with `MOD/`, `LEVEL/`, `BUILT-IN/`,
+  `RAW:` or are bare relative paths; where `LEVEL/` and bare paths resolve is not verified.
+  Several official level mods reference `MOD/...` files or `.vox` objects that are not in
+  their folder (probably unused prefabs; not verified). One official file writes
+  `rot="- 180"` (`evertidesmall`); how the game reads such a value is not verified.
+- `FILES` Official `spawn.txt` names usually have a category (`Category/Name`); `motorpark` also
+  uses names without one (`Fiery Frances`). Official mods also provide content without
+  `spawn.txt`, `main.xml` or `main.lua`: through `gamemodes.txt` (`mpclassics`) or data files
+  only (`bananabomb`). Some official level vehicles are built from
+  `instance` elements (`cratertown` skytram) instead of a `body` written in place.
 - `FILES` Observed ranges over 135 official vehicle prefabs: 1 body in 99/143 vehicles; 4 wheels most
   common; topspeed 3–120 (typ. 60–90); spring 0.2–25 (typ. 0.5); damping 0.4–25 (typ. 0.7);
   wheel travel typically `-0.1 0.1`.
@@ -229,6 +245,32 @@ Calibration results (2026-10-06, protocol C of `docs/TESTING_IN_GAME.md`, screen
 - `DOC` Static objects become dynamic when spawned from the spawn menu.
 - `FILES` Spawn packs: `spawn.txt` lines point to prefab XML files relative to the mod folder; the
   prefab root is `<prefab version="...">` > `<group>`.
+- `FILES` Lines starting with `#` are comments in official `spawn.txt` (`merlin`, `proppack`,
+  `vehiclepack`...) and `info.txt` (`contentgamemodeexample`) files; official `info.txt` files
+  often give only localized names and descriptions (`en_name`, `de_name`..., `en_description`).
+- `GAME` Game log (observed 2026-10-07): entries start with
+  `<counter> <hh:mm:ss.micro> <LEVEL> <hex id> [<tags>] <message>` (levels `INFO`, `WARNING`,
+  `ERROR`; tags such as `NoTag` or `NoTag|Loading`); lines without that prefix continue the
+  previous message. Spawning writes `Spawning: <mod id>:<prefab path> (mod path: ...)`, where a
+  local mod's id is `local-` + its folder name in lower case with dashes for spaces
+  (`local-petite-rouge` for `Petite Rouge`; seen for single spaces only), built-in mods
+  `builtin-<folder>`; scripts started by a mod are logged as
+  `Spawning: <script file="MOD/..."/> (mod path: <absolute mod folder>)`. Lua messages name their
+  script `[string "...<last 32 characters of the script path>"]` (for example
+  `[string "...8736/TABS/scripts/ballistics.lua"]`), so a mod's folder name may not appear in
+  them. The file only held the latest game run (it starts again at 00:00:00 after a restart).
+- `GAME` 2026-10-07 (protocol F): a Lua runtime error in a local mod's script
+  (`attempt to call global 'fonction_inexistante' (a nil value)` in `client.init()`) is shown on
+  screen, in the bottom left corner, as `[string "...ods/Petite Rouge/script/test.lua"]:4: <message>`
+  (the last 32 characters of the script path, once per script instance), and is **not written
+  to `log.txt`**. The log lists each script of a local mod as it is loaded:
+  `INFO ... [NoTag|LocalMod] C:/Users/<user>/Documents/Teardown/mods/<Folder>/<path>.lua`.
+  Engine warnings about scripts (`Called the ... API function before init`) are written to the
+  log with the same `[string "..."]` chunk names.
+- `FILES` `data/script_defs.lua` (753 functions) and `data/voxscript_defs.lua` (28) are LuaLS
+  annotation files: each `function Name(args) ... end` line is preceded by `---` comment lines
+  with a description, an example in a ```` ```lua ```` block, `---@param name type text` and
+  `---@return type name text` lines.
 
 ## 7b. Lua scripts (for probes and, later, the reference tools)
 

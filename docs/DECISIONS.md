@@ -189,3 +189,59 @@ rule (for example `Project.add_wheels` takes a `WheelLayout`).
   object, relative to its pos point; vehicle parameters of the calibration car; no rotations, no
   `script` wrapper (official prefabs have none), no XML comments. A test rebuilds the calibration
   car as an assembly and checks that the skeleton reproduces its verified XML values.
+
+## D-027 — Coherence tools: read only, rules from official files, findings not fixes
+Milestone 0.5.0 adds `validate_mod`, `read_game_log` and `lookup_api` (`buildup.teardown`
+`validate`, `gamelog`, `api`, `install`; tools in `buildup.server.coherence`).
+- **Read only.** The tools read mod folders, the game log and the install; they never write or
+  fix anything, so they may read outside the workspace (a mod already copied into the game's
+  mods folder, the Steam install). Findings say what to change; the AI edits the files.
+- **Rules from official files.** The validator was run on every official mod of the install
+  and on Nathan's local mods; official usages it first flagged are now accepted or reported as
+  notes (comment lines, localized `info.txt` keys, tags separated by spaces or in lower case,
+  no tags, spawn names without category, mods with only `main.lua`, short `rot`/`pos` vectors,
+  `rot="0 0 0"`, `LEVEL/` and bare paths, boats without wheels, vehicles without
+  `vital`/`exhaust`, `nodrive` vehicles without `player`, vehicles built from `instance`s).
+  These usages are recorded in the reference (§6-7). What remains on official mods is real:
+  `MOD/` files, objects and `spawn.txt` prefabs missing from some level mods (probably unused),
+  one XML syntax error, and malformed `rot` values (`- 180`, `-90.0 90.0 -`). A mod without
+  `spawn.txt`, `main.xml` or `main.lua` is only a note: official mods also add content through
+  `gamemodes.txt` or data files.
+  Levels: `error` = will not work as written (missing file or object, XML syntax, no
+  `info.txt` name), `warning` = may not work or differs from official usage (including a UTF-8
+  byte order mark in `info.txt`/`spawn.txt`, which no official file has), `info` (shown as
+  NOTE) = not checked, or unusual but seen in official files. Unreadable files (unknown XML
+  encoding, a folder named `*.xml`) are findings, never crashes; `MOD/` paths that resolve
+  outside the mod folder are errors.
+- **Manifest comparison.** Positions are compared with the manifests of the workspace's
+  projects (matched by `vox_file`; only complete manifests of the current `manifest_version`
+  are used), only for `vox` elements directly inside a `body` or `wheel` and without a non-zero
+  `rot`; `location`s inside a vox are compared relative to the manifest's vox position (they
+  follow the geometry, D-026), `location`s directly in a `body` with the anchor itself. If the
+  mod's `.vox` objects differ in size from the manifest (an older copy of the mod), positions
+  are not compared and one warning says so. `buildup.teardown.validate` reads `.vox` files
+  through `buildup.voxio` (a lower layer, allowed by AGENTS.md §5).
+- **Game files.** The install is `$TEARDOWN_DIR`, else the first Steam library (from
+  `libraryfolders.vdf`) containing `steamapps/common/Teardown`; the log is `$TEARDOWN_LOG`, else
+  `%LOCALAPPDATA%\Teardown\log.txt`. `create_server` accepts explicit `GamePaths`, so tests use
+  invented files and never the user's game files (rule 2); tests marked `game` read the real
+  ones without copying them.
+- **Log filtering** by mod matches the folder name as a path segment (`/Red Pickup/`,
+  `(mod path: .../Red Pickup)`), the local id (`local-red-pickup`), and Lua chunk names
+  `[string "...<path end>"]` that end one of the mod's files (looked up in `workspace/mods` and
+  in the game's local mods folder): the log keeps only the last 32 characters of script paths,
+  so the folder name alone would miss the mod's Lua errors. A chunk name that covers the whole
+  relative path but only the end of the folder name is attributed too: another local mod with
+  the same script path and the same folder ending could be mixed up (rare, accepted). The tool
+  takes the folder name, not the `local-` id. "Other Mod" therefore matches
+  neither "another mod" nor "Other Mod 2". Spawn messages of the mod are always shown. When
+  nothing is found the tool says that unattributable messages exist and how to see them all.
+- **Lua runtime errors** are shown on the game screen and not written to `log.txt` (protocol F,
+  2026-10-07). `read_game_log` therefore always reminds the AI to ask the user for the on-screen
+  text, and lists the `[NoTag|LocalMod]` lines (the mod's scripts as loaded) and spawns with the
+  mod filter, so the AI can tell that a script ran. The chunk-name matching still attributes
+  the engine's script warnings, which are logged.
+- **Locks.** `validate_mod` holds the project lock only while reading the manifests, never while
+  scanning a mod folder; `path` must be absolute.
+- **Linux.** Steam under `~/.steam/steam` and `~/.local/share/Steam` is searched; the log of a
+  Proton install is not located automatically: set `TEARDOWN_LOG`.

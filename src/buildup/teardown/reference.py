@@ -114,7 +114,14 @@ spawn.txt (official files; a plain-text category verified in game), one line per
 Paths inside the mod start at the mod folder in spawn.txt; in XML they start with MOD/.
 
 Game log (official files): %LOCALAPPDATA%\\Teardown\\log.txt; loading errors appear as lines
-containing ERROR, for example "File not found".
+containing ERROR, for example "File not found". It holds the latest game run only (verified
+in game). Use read_game_log(mod="<Mod Name>") after the user has played; a local mod appears
+there as local-<mod name in lower case with dashes>.
+
+Lua runtime errors are not in the log: the game shows them on screen only (verified in
+game). Ask the user for that text after a test.
+
+Check the mod with validate_mod before the user tests it.
 """
 
 
@@ -167,8 +174,10 @@ WORKFLOW FOR A VEHICLE
 6. preview and inspect after each step; check that there is a single part per object
    (voxels touching only by edges may fall apart when damaged) and no overlaps.
 7. export_model, then write info.txt and spawn.txt (teardown_reference("mod_files")) and adjust
-   prefab/NAME.xml if needed (teardown_reference("vehicle_xml")).
-8. The user copies the mod folder into Documents\\Teardown\\mods\\ and tests it.
+   prefab/NAME.xml if needed (teardown_reference("vehicle_xml"); lookup_api for Lua scripts).
+   Run validate_mod and fix every error.
+8. The user copies the mod folder into Documents\\Teardown\\mods\\ and tests it; then
+   read_game_log(mod=...) shows the game's errors for the mod.
 """
 
 TOPICS: Final[dict[str, str]] = {

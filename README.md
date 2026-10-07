@@ -36,8 +36,10 @@ Tools: projects (`create_project`, `list_projects`, `project_summary`, `undo`), 
 (`define_color`, `add_part`, `remove_part`), drawing (`draw_box`, `draw_cylinder`,
 `draw_ellipsoid`, `draw_wedge`, `cut_edges`), operations (`mirror_part`, `hollow_part`,
 `move_part`, `add_wheels`, `set_anchor`), inspection (`preview` image, `inspect`,
-`slice_layers`), `export_model` (`.vox`, manifest, XML prefab skeleton) and
-`teardown_reference`.
+`slice_layers`), `export_model` (`.vox`, manifest, XML prefab skeleton),
+`teardown_reference`, and coherence tools that read the user's game files without changing
+them: `validate_mod` (checks a mod folder), `read_game_log` (the game's errors for a mod) and
+`lookup_api` (Teardown's Lua API from the local install).
 
 ## Documentation
 

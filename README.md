@@ -1,6 +1,7 @@
 # Buildup — an MCP server for Teardown voxel modding
 
-> **Status: pre-alpha, in development.** Nothing is usable yet. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status: pre-alpha (0.4.0 in progress).** The MCP server works for simple vehicles and props;
+> the in-game acceptance test of the MVP is pending. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Buildup is an [MCP](https://modelcontextprotocol.io/) server that lets an AI assistant (such as Claude
 Code) build **complete, Teardown-ready voxel models**: multi-part `.vox` files using Teardown's material
@@ -9,6 +10,34 @@ points) plus a known-good XML skeleton, so the AI can then write the mod's XML a
 
 Goal: anyone can describe a vehicle and get a working [Teardown](https://teardowngame.com/) mod, without
 knowing voxel modelling or modding.
+
+## Using it with Claude Code
+
+Requires [uv](https://docs.astral.sh/uv/) and a clone of this repository. Buildup runs as a local
+MCP server over stdio:
+
+```bash
+uv run --project /path/to/teardown-mcp buildup-mcp --workspace /path/to/your/folder/workspace
+```
+
+The easiest way to register it for Claude Code sessions opened in a folder of yours (outside this
+repository) is:
+
+```bash
+uv run python scripts/write_mcp_config.py /path/to/your/folder
+```
+
+which writes `/path/to/your/folder/.mcp.json`. Start Claude Code in that folder, approve the
+`buildup` server, and ask for a vehicle. Buildup writes projects to `workspace/projects/` and
+exported mods to `workspace/mods/<Mod Name>/`; copy a mod folder into
+`Documents\Teardown\mods\` to test it. Buildup never writes into the game's folders.
+
+Tools: projects (`create_project`, `list_projects`, `project_summary`, `undo`), colors and parts
+(`define_color`, `add_part`, `remove_part`), drawing (`draw_box`, `draw_cylinder`,
+`draw_ellipsoid`, `draw_wedge`, `cut_edges`), operations (`mirror_part`, `hollow_part`,
+`move_part`, `add_wheels`, `set_anchor`), inspection (`preview` image, `inspect`,
+`slice_layers`), `export_model` (`.vox`, manifest, XML prefab skeleton) and
+`teardown_reference`.
 
 ## Documentation
 

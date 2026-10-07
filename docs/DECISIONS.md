@@ -119,3 +119,73 @@ on every layer). Text inspection (`describe`, `ascii_slice`) lives in `buildup.r
 image views: both are "views" of a model, and `render` may use `palette` for material names.
 Shapes in `voxcore` are boolean masks combined with numpy operators; grid functions never modify
 their inputs (safe for the undo history planned in 0.4.0).
+
+## D-022 — Model space limits (where grid sizes are bounded)
+Context: `voxcore.new_grid` has no upper bound, and every tool call could otherwise ask for a huge
+grid. Decision: the limit lives in the project layer, where tool arguments enter: every voxel of
+a project has model-frame coordinates from −128 to 127 on each axis (`WORLD_MIN`, `WORLD_MAX`).
+That is 25.6 m per axis, the `.vox` limit of one object (256), so any part fits in one object and
+the whole model fits in a 256³ grid (16 MB) for previews. Shapes are clipped to that space;
+mirrors, moves, wheels and anchors that would leave it are refused. Shape masks are computed only
+over the shape's bounding box, never over the whole space; a shape as large as the whole space
+still needs about 0.8 GB of temporary memory (float64 coordinates in `voxcore.shapes`, measured
+by the 0.4.0 review), acceptable on a desktop PC. Shape centers and sizes are limited to
+±4096 voxels and must be finite numbers. A project holds at most 32 parts and 32 anchors. The core layers (`voxcore`, `render`) stay unbounded: they are called with grids that
+already respect these limits.
+
+## D-023 — Runtime dependency: the official MCP SDK `mcp` (>= 2.3)
+Implements D-002 in 0.4.0. Version 2.3.0 (2026-10) checked against its documentation
+(py.sdk.modelcontextprotocol.io): `MCPServer`, `@mcp.tool()` with `Annotated[..., Field(...)]`
+argument descriptions, `ToolError` for errors the AI can fix, `Image` for PNG results, in-memory
+`Client(server)` for tests and `StdioServerParameters` for a real subprocess test. It brings
+pydantic, anyio, starlette, httpx2, uvicorn, pyjwt, cryptography, opentelemetry-api and (on
+Windows) pywin32 as transitive dependencies, under permissive licenses compatible with MIT (MIT,
+BSD, Apache-2.0, PSF). Pinned below 3 (`mcp>=2.3,<3`): the SDK announces removals for 3.0.
+Tests use the anyio pytest plugin shipped with anyio (no new dev dependency).
+
+## D-024 — Lint exception: many arguments on MCP tool functions
+The parameters of an MCP tool function are the JSON fields the AI fills in. Grouping them into
+objects only to satisfy ruff's PLR0913/PLR0917 (more than 5 arguments) would make the tool
+schemas harder for the AI to use. Those two rules are therefore disabled for
+`src/buildup/server/app.py` only (`pyproject.toml`, per-file ignores). Core functions keep the
+rule (for example `Project.add_wheels` takes a `WheelLayout`).
+
+## D-025 — Workspace, project files and export layout
+- **Workspace**: `--workspace PATH`, else `$BUILDUP_WORKSPACE`, else `./workspace` (resolved to an
+  absolute path when the server starts). Projects go to `workspace/projects/<name>/`, mods to
+  `workspace/mods/<Mod Name>/` (D-010: never the game's folder).
+- **Project files**: `project.json` (readable JSON: colors, parts, wheel data, anchors, format
+  version) and `parts.npz` (compressed numpy arrays, read with `allow_pickle=False`; arrays are
+  positional, named by `project.json`, so part names never clash with numpy arguments). Every
+  edit loads the project, applies the change and saves only on success, after copying the
+  previous files to `history/<n>/` (at most 100 steps): `undo` restores them. One lock serialises
+  edits (tools run in worker threads).
+- **Names**: projects `[a-z][a-z0-9_]{0,39}` (also folder and `.vox` file names; Windows device
+  names refused), parts/colors/anchors `[a-z][a-z0-9_]{0,31}` (a subset of D-018), mod names
+  Latin letters, digits and single spaces (official recommendation, reference §7).
+- **Export** (`export_model`): `mods/<Mod Name>/vox/<project>.vox` (compiled, always rewritten),
+  `projects/<name>/export/manifest.json` and `skeleton.xml` (always rewritten), and
+  `mods/<Mod Name>/prefab/<project>.xml` copied from the skeleton only if missing by default: the
+  user's AI owns that file. If the skeleton changes while the prefab is kept, the export warns.
+  `info.txt` and `spawn.txt` are written by the user's AI (D-006).
+
+## D-026 — Modelling and skeleton conventions
+- **Model frame**: the Teardown frame in voxels; the vehicle `body` element sits at the frame
+  origin (no `pos`), so every model-frame position is directly a body-frame position. Buildup
+  recommends (does not enforce) ground at Y = 0 and the center line at X = 0; `add_wheels` puts
+  wheel bottoms at Y = 0 by default.
+- **Parts** are sets of voxels: the grid follows the voxels (drawing grows it, carving crops it),
+  so the AI never manages grid sizes. Drawing modes: `add` (fill, replacing), `paint` (recolor
+  existing voxels only), `carve`. Coordinates: boxes use start (inclusive) / end (exclusive)
+  cells; centers, axles and anchors are continuous coordinates, like the preview rulers (D-021).
+- **Colors** are named and each name owns one palette index in its material's range, so
+  redefining a color recolors its voxels; its material cannot change.
+- **Wheels**: even diameters only (axles on whole voxels on Y and Z); names `fl`, `fr`, `bl`,
+  `br` as in official files, and `m`/`m1`/`m2` for middle axles (whether the engine reads wheel
+  names is unknown, reference §8).
+- **Skeleton**: only what the calibration verified in game (D-019, reference §5-7): vox `pos` =
+  part origin + `xml_origin(size)`; wheel `pos` = axle and wheel vox `pos` = its pos point minus
+  the axle; `player`/`vital`/`exhaust` anchors become `location` children of the first body
+  object, relative to its pos point; vehicle parameters of the calibration car; no rotations, no
+  `script` wrapper (official prefabs have none), no XML comments. A test rebuilds the calibration
+  car as an assembly and checks that the skeleton reproduces its verified XML values.

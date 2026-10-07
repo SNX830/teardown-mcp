@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- MCP server `buildup-mcp` (stdio, official MCP SDK) with 22 tools: projects saved on disk with
+  undo; named colors (material + color + finish); parts drawn with boxes, cylinders, ellipsoids,
+  ramps and edge cuts (add, paint or carve); mirror, hollow and move; wheels with axle data;
+  named anchors; preview images and text inspection (description, ASCII layers); export to a
+  mod folder; Teardown reference texts for the AI.
+- `buildup.project`: persistent modelling projects (`project.json` + `parts.npz`, undo history),
+  model space limited to 256 voxels per axis.
+- `buildup.teardown`: export checks (missing vehicle locations, overlapping objects, loose
+  pieces), the manifest (`manifest_version` 1) and a minimal XML prefab skeleton reproducing the
+  conventions verified in game.
+- `scripts/write_mcp_config.py`: registers the server for Claude Code sessions in a folder
+  (`.mcp.json`). Test protocol E in `docs/TESTING_IN_GAME.md`.
+- Runtime dependency: `mcp` (official MCP Python SDK).
+
 ## [0.3.0] - 2026-10-06
 
 ### Added

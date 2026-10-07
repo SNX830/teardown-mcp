@@ -19,6 +19,7 @@ classifiers = [
 ]
 # Runtime dependencies are added milestone by milestone, each with a decision in docs/DECISIONS.md.
 dependencies = [
+    "mcp>=2.3,<3",
     "numpy>=2.2",
     "pillow>=11.0",
 ]
@@ -31,6 +32,9 @@ dev = [
   "pytest-cov>=7.1",
   "lupa>=2.8",
 ]
+
+[project.scripts]
+buildup-mcp = "buildup.server:main"
 
 [build-system]
 requires = ["hatchling>=1.27"]
@@ -85,6 +89,9 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "PLR2004", "ARG"]
 "scripts/**" = ["T20"]  # command-line scripts may print
+# MCP tool parameters are the JSON fields the AI fills in: flat arguments keep the tool schemas
+# simple for the AI (decision D-024).
+"src/buildup/server/app.py" = ["PLR0913", "PLR0917"]
 
 [tool.mypy]
 python_version = "3.12"

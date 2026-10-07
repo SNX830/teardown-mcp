@@ -57,6 +57,9 @@ write the rest of the mod (manifest, anchors, reference, validation). See `AGENT
 - Profile extrusion (side silhouette drawn as ASCII or polyline, extruded and chamfered).
 - Parametric templates (sedan, pickup, truck...) the AI customizes.
 - Named anchors (headlights, exhaust, seats, hinge points) exported in the manifest.
+- Driver seat: a `rig` (seat and IK points) in the skeleton so that the driver sits inside the
+  car, and guidance for the `player` view point (0.4.0 acceptance: feet out under the car, view
+  low); previews that show glass as see-through, as it is in game.
 - **Accept:** a panel of test prompts produces recognisable vehicles (judged by Nathan on previews and
   in game).
 

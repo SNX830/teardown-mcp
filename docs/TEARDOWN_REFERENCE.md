@@ -10,7 +10,7 @@ here; add new facts with their source (rule 3 in `AGENTS.md`).
 | `SPEC` | Stated in the official .vox specification (github.com/ephtracy/voxel-model) |
 | `REF` | Documented by the open-source reference implementation `ogt_vox` (MIT, opengametools) |
 | `MV` | Verified visually in MagicaVoxel 0.99.7.2 with a file written by our code (says nothing about Teardown itself) |
-| `GAME` | Measured in Teardown by the 0.2.0 calibration probes (Nathan, 2026-10-06, game as installed that day) |
+| `GAME` | Measured in Teardown by the 0.2.0 calibration probes (Nathan, 2026-10-06, game as installed that day), or observed by Nathan in the 0.4.0 acceptance test (2026-10-07, "Petite Rouge" car built by a fresh Claude Code session) |
 | `DEDUCED` | Inferred from official files, consistent but not directly stated; must be confirmed in game |
 | `UNVERIFIED` | Hypothesis; must not be relied on without a test |
 
@@ -107,6 +107,9 @@ Details:
   (transparent windows) and offer no "opaque glass" option.
   `MV` 2026-10-04: glass written with `_weight 0.5` renders transparent and `_emit` voxels glow in
   MagicaVoxel's renderer; the palette row names written in `NOTE` are displayed next to the rows.
+  `GAME` 2026-10-07 (0.4.0 acceptance car): glass-material voxels with our glass finish
+  (`_glass`, `_weight 0.5`) are see-through in game and break when shot; glass voxels with an
+  emissive finish (`_emit`, `_weight 0.5`, `_flux 2`) glow and break too.
 - `DOC` Rendering type comes from the MagicaVoxel material (`MATL _type`): metal (the normal case;
   diffuse = metal with max roughness, also fine), glass, emissive. Glass transparency: only "100 or not"
   matters. The appearance never changes the physical material.
@@ -174,6 +177,18 @@ Calibration results (2026-10-06, protocol C of `docs/TESTING_IN_GAME.md`, screen
 - `GAME` A vehicle without a `sound` attribute still has an engine sound; without rig locations
   the driver is shown near the `player` location (our calibration driver sat on the roof, the
   location being above the body; the exact offset was not measured).
+- `GAME` 2026-10-07: a vehicle prefab `prefab > group > vehicle > body > (vox with locations,
+  wheels)` without any `script` wrapper (Buildup's skeleton) spawns from `spawn.txt`, drives
+  forward and backward, steers, its wheels touch the ground and turn; no log error.
+- `GAME` 2026-10-07: without driver `rig`, with the `player` location 0.9 m above the cabin floor
+  (1.2 m above the ground), the driver's view is at about that height and the driver's body is
+  shown hanging below it: its feet stick out under the car.
+- `FILES` Every official land vehicle of `mods/assetpack/assets/vehicles/land` has `rig` elements
+  (children of `body`): a `rig` tagged `driver` and passenger rigs, each with `location`s tagged
+  `seat`, `ik_head`, `ik_hand_l`, `ik_hand_r`, `ik_foot_l`, `ik_foot_r` (and `steeringwheel`
+  for the driver), positioned relative to the rig `pos`. In the saloon car the `player`
+  location is about 0.1 m above the driver rig's `ik_head`. `DEDUCED`: `player` is the driver's
+  view point and the rig gives the seated pose; unverified until a rig is tested in game.
 - `FILES` (historical hint, now explained by the origin rule) The saloon car body is 21 voxels wide
   and its vox has `pos` x `0.05` with `rot="0 180 0"`: with the floor origin and the 180° turn the
   0.05 centers the body between its wheels.
@@ -252,3 +267,5 @@ Calibration results (2026-10-06, protocol C of `docs/TESTING_IN_GAME.md`, screen
 - Whether children of a `vox` follow the vox rotation (translation measured, §5).
 - Whether location entities follow their body after spawn (`turret.lua` hint, §7b).
 - What `teardown_modtest.exe` (in the install folder) does; could it load a mod from the command line?
+- Whether the engine reads wheel `name` values (Buildup writes `fl`, `fr`, `bl`, `br` like official
+  files, and `ml`/`mr`, `m1l`... for middle axles).

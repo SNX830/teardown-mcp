@@ -3,7 +3,7 @@
 Hand-off notes between sessions. Update at the end of every session (see `AGENTS.md` §4).
 
 - **Current version:** 0.3.0 (tag `v0.3.0`)
-- **Current milestone:** 0.4.0 — MVP: MCP server (not started)
+- **Current milestone:** 0.4.0 — MVP: MCP server (implemented on branch `feat/mcp-server`; acceptance test passed 2026-10-07, release pending Nathan's go)
 - **Last milestone:** 0.3.0 — Modelling core, preview and inspection (released 2026-10-06)
 - **Repository:** https://github.com/SNX830/teardown-mcp (public)
 
@@ -63,6 +63,23 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
   Timing (Nathan's PC, 128^3 grid, sphere of radius 63 hollowed with thickness 1): connectivity
   0.3 s, `describe` 0.35 s, full preview sheet about 2 s; a 128^3 checkerboard (1 048 576
   separate voxels) is analysed in 1.7 s.
+- 2026-10-07 — Milestone 0.4.0 implemented on branch `feat/mcp-server`: `buildup.project`
+  (projects on disk with undo, named colors, parts that grow with their voxels, wheels, anchors,
+  model space limits), `buildup.teardown` (export checks, manifest, XML skeleton, reference
+  texts) and `buildup.server` (22 MCP tools, `buildup-mcp` command). Decisions D-022 to D-026.
+  MCP SDK 2.3.0 API checked against its documentation (D-023). Verified: the skeleton rebuilt
+  from the calibration car reproduces its game-verified XML values; the server runs as a real
+  stdio subprocess (stdout clean); a full build-preview-export run through the MCP client gives a
+  coherent preview (looked at by the agent) and a `.vox` that reads back identical.
+  `scripts/write_mcp_config.py` writes the `.mcp.json` for the acceptance test.
+  Independent review: changes required, all fixed: AI-facing texts stated more than the
+  reference supports (overlaps "collide", vital "engine area", glass "transparent" in game,
+  edge-touching voxels "fall off"); parallel tool calls could break saves on Windows (now one
+  re-entrant lock for every file access, both files written before replacing, retries, failed
+  saves restored without a fake undo step); a copied project folder edited the original;
+  `add_wheels` guidance gave no gap (now half width + 1, like the calibration car); `mirror_part`
+  could silently empty a part; non-finite numbers crashed tools; reserved mod names; tool
+  annotations. Re-review: approved. 483 tests, coverage 98.7 %.
 
 ## Environment notes (Nathan's machine)
 
@@ -72,10 +89,8 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
 
 ## Next steps
 
-1. Milestone 0.4.0 (MVP: MCP server).
-2. For 0.4.0: decide where grid sizes are limited (`voxcore.new_grid` has no upper bound; `.vox`
-   objects are limited to 256 per edge) so that a tool call cannot allocate gigabytes. The future XML skeleton must place `vox` elements with
-   `buildup.voxio.xml_origin` (measured rule, no half voxel).
+1. Release 0.4.0 when Nathan asks (acceptance passed).
+2. Milestone 0.5.0 (coherence tools: `validate_mod`, `read_game_log`, `lookup_api`).
 3. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
 
 ## Open questions for Nathan
@@ -84,11 +99,23 @@ None blocking.
 
 ## Manual tests pending
 
-None. Last result: **0.3.0 preview review passed** (2026-10-06, protocol D, Nathan: "tout est
+None. Last result: **0.4.0 MVP acceptance passed** (2026-10-07, protocol E). A fresh Claude
+Code session (Sonnet 5.5, high effort) in `Documents\Perso\BuildupTest` built "Petite Rouge" in
+about 2 minutes with 47 tool calls and no tool error, exported it and wrote `info.txt` and
+`spawn.txt`. In game: listed in the spawn menu, wheels on the ground, turning and steering,
+drives forward and backward (reverse slower), glass windows and lights break. `log.txt`: no
+error for the mod (only errors of other Workshop mods). Remarks by Nathan:
+- the rear cabin pillar "does not reach the roof": the AI put glass quarter windows there; glass
+  is see-through in game, which the preview (opaque light blue) does not show;
+- the driver's view is low and the driver's feet stick out under the car (no driver `rig`;
+  reference §5); the cabin interior is empty (expected).
+Both are recorded for 0.6.0 (roadmap). New `GAME` facts in reference §3 and §5.
+
+Older result: **0.3.0 preview review passed** (2026-10-06, protocol D, Nathan: "tout est
 OK" on `pickup.png`, `gallery.png` and `pickup.txt`; no remark, including on the "chamfer" label
 placed above the wedge in the gallery front view).
 
-Previous result: **0.2.0 calibration passed** (2026-10-06, protocol C, screenshots by Nathan).
+Older result: **0.2.0 calibration passed** (2026-10-06, protocol C, screenshots by Nathan).
 Every conclusive probe line `OK` (the odd block's probe is not conclusive); engine grid =
 MagicaVoxel grid rotated so that MagicaVoxel (x, y, z) -> Teardown (x, z, -y); odd block `pos-xml` `-0.200 0.000 0.400` = MagicaVoxel-pivot rule (no half
 voxel); `ROT`/`ROT2` match `QuatEuler`; car: wheels gap 0 cm, axle +2 to +3 cm at rest, locations

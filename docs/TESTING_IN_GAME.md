@@ -126,3 +126,59 @@ wheel centers marked) and `gallery.png` / `gallery.txt` (one of each shape and o
 4. Report: OK / remarks, with a screenshot of anything wrong.
 
 No game launch is needed for this protocol.
+
+## E. MVP acceptance: a fresh Claude Code session builds a car (milestone 0.4.0)
+
+Goal: check that an AI that knows nothing about this project can build a working vehicle mod
+with the Buildup MCP server alone. Do not help Claude with technical details during the test;
+answer only questions about what you want (color, shape...).
+
+### Steps for Nathan
+
+1. **Prepare a test folder outside the repository** (a session inside the repository would read
+   the developers' instructions). In a terminal opened in the repository:
+
+   ```
+   uv run python scripts/write_mcp_config.py C:\Users\snayx\Documents\Perso\BuildupTest
+   ```
+
+   It writes `BuildupTest\.mcp.json`, which tells Claude Code how to start Buildup; Buildup's
+   files go to `BuildupTest\workspace\`.
+2. **Start a new Claude Code session in `BuildupTest`** (desktop app: Code tab, choose that
+   folder; or `claude` in a terminal opened there). When Claude Code asks whether to use the
+   `buildup` MCP server from `.mcp.json`, accept. Check: ask "Quels outils du serveur buildup
+   as-tu ?" — Claude should list tools such as `create_project`, `draw_box`, `export_model`.
+   If it has none, see "If the server does not start" below.
+3. **Give this request** (copy it as is):
+
+   > Avec le serveur MCP buildup, construis un petit véhicule pour Teardown : une petite voiture
+   > rouge à quatre roues, avec des vitres en verre et des phares. Regarde les aperçus pour
+   > vérifier ton travail. Ensuite exporte le mod et écris info.txt et spawn.txt pour qu'il
+   > apparaisse dans le menu de spawn. Ne copie rien dans le dossier du jeu.
+
+   Let Claude work; accept its tool calls. Note roughly how many minutes it took and anything
+   it got stuck on or did twice.
+4. **Look at the result before the game**: open `BuildupTest\workspace\projects\<name>\preview.png`
+   (the last preview Claude made). Does it look like a small car?
+5. **Copy the mod**: copy the folder `BuildupTest\workspace\mods\<Mod Name>` into
+   `Documents\Teardown\mods\`.
+6. **In Teardown**: open **Mods** and check that the mod is listed (enable it if needed); start a
+   sandbox map with flat ground; open the spawn menu, find the category Claude wrote in
+   `spawn.txt` and spawn the car. Check and answer:
+   - Does it appear in the spawn menu, and spawn the right way up, at a plausible size?
+   - Do the four wheels touch the ground (not floating, not sunk)? Do they turn when driving,
+     and do the front wheels steer?
+   - Can you enter it and drive forward and backward?
+   - Shoot or hit a window: does the glass break?
+7. Quit the game. Report your answers, the mod folder name and screenshots if something looks
+   wrong. The agent reads `%LOCALAPPDATA%\Teardown\log.txt` itself (errors mentioning the mod).
+8. Afterwards remove the mod folder from `Documents\Teardown\mods\` (or keep it if you like it).
+
+### If the server does not start
+
+- Check that `uv` works in a new terminal (`uv --version`).
+- Run the command from `.mcp.json` yourself in a terminal: it should print one line starting
+  with the date and `INFO buildup.server.main` and then wait silently (Ctrl+C to stop).
+  An error message there is what the agent needs.
+- Alternative registration without `.mcp.json` (Claude Code command line, in `BuildupTest`):
+  `claude mcp add buildup -- uv run --project C:\Users\snayx\Documents\Perso\Projet\Teardown-MCP buildup-mcp --workspace C:\Users\snayx\Documents\Perso\BuildupTest\workspace`

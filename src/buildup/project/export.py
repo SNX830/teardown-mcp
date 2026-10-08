@@ -56,6 +56,7 @@ def build_assembly(project: Project) -> tuple[Assembly, list[str]]:
         anchors=dict(project.anchors),
         palette=project.palette(),
         color_names=project.color_names(),
+        handling=project.handling,
     )
     return assembly, notes
 

@@ -31,6 +31,7 @@ from buildup.project.shapes import (
     inside_world,
 )
 from buildup.teardown import Kind, Point
+from buildup.teardown.handling import DEFAULT_HANDLING, HANDLING
 from buildup.voxcore import EMPTY, Grid, Vec3, compose, filled_bounds, hollow
 from buildup.voxcore.grid import as_float3, as_int, as_number, as_vec3
 
@@ -255,6 +256,7 @@ class Project:
         colors: Named colors, by name.
         parts: Parts in creation order (also the order in the ``.vox`` file).
         anchors: Named points (continuous model-frame voxel coordinates).
+        handling: Driving preset of a vehicle (``buildup.teardown.handling``).
     """
 
     name: str
@@ -263,6 +265,19 @@ class Project:
     colors: dict[str, Color] = field(default_factory=dict)
     parts: dict[str, Part] = field(default_factory=dict)
     anchors: dict[str, Point] = field(default_factory=dict)
+    handling: str = DEFAULT_HANDLING
+
+    def set_handling(self, preset: object) -> None:
+        """Choose the driving preset written on the skeleton's ``vehicle`` element.
+
+        Raises:
+            ProjectError: Not a vehicle, or an unknown preset (the message lists them).
+        """
+        if self.kind != "vehicle":
+            raise ProjectError("only vehicle projects have a handling preset")
+        if not isinstance(preset, str) or preset not in HANDLING:
+            raise ProjectError(f"unknown handling {preset!r}; presets: {', '.join(HANDLING)}")
+        self.handling = preset
 
     # --- Colors ----------------------------------------------------------------------------
 

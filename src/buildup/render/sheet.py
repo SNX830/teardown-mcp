@@ -1,12 +1,13 @@
 """Preview sheet: several annotated views of a model on one image, for an AI that cannot see it.
 
 Orthographic panels carry rulers labelled in meters with Teardown-frame coordinates, and say which
-side of the model each image edge shows. 3/4 panels carry an axis gizmo (1 m, or 0.5 m at large
+side of the model each image edge shows. See-through palette indices (glass) are drawn
+translucent, as they look in game. 3/4 panels carry an axis gizmo (1 m, or 0.5 m at large
 scales). Optional markers
 (labelled points such as wheel centers) are drawn on every panel.
 """
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from typing import Final
 
@@ -24,6 +25,7 @@ from buildup.render.views import (
     color_table,
     meters,
     ortho_view,
+    see_through_mask,
     shade,
     upscale,
 )
@@ -86,15 +88,18 @@ class Marker:
 
 @dataclass(frozen=True)
 class Annotations:
-    """Optional texts and points of a preview sheet.
+    """Optional extras of a preview sheet.
 
     Attributes:
         title: Text at the top of the sheet.
         markers: Labelled points drawn on every panel.
+        see_through: Palette indices drawn see-through, as glass looks in game
+            (``Palette.see_through()``).
     """
 
     title: str = ""
     markers: tuple[Marker, ...] = ()
+    see_through: Collection[int] = ()
 
 
 @dataclass(frozen=True)
@@ -106,6 +111,7 @@ class _Scene:
     scale: int
     origin: Vec3
     markers: tuple[Marker, ...]
+    see_through: Collection[int] = ()
 
 
 def _font(size: int) -> Font:
@@ -152,7 +158,7 @@ def boundary_pixel(g: float, n: int, sign: int, scale: int, rows: bool) -> float
 def _ortho_panel(scene: _Scene, view: View) -> Image.Image:
     grid, scale, origin = scene.grid, scene.scale, scene.origin
     o = ORIENTATIONS[view]
-    image = ortho_view(grid, view)
+    image = ortho_view(grid, view, scene.see_through)
     rgb = upscale(shade(image, scene.colors, grid.shape[o.depth]), image, scale)
     n_right, n_up = grid.shape[o.right], grid.shape[o.up]
     font, small = _font(14), _font(12)
@@ -269,7 +275,7 @@ def _free_label_box(
 def _iso_panel(scene: _Scene, view: View) -> Image.Image:
     grid, scale = scene.grid, scene.scale
     shape = (grid.shape[0], grid.shape[1], grid.shape[2])
-    picture = iso_image(grid, scene.colors, view, scale)
+    picture = iso_image(grid, scene.colors, view, scale, scene.see_through)
     frame = iso_frame(shape, view, scale)
     font, small = _font(14), _font(12)
     # The axis gizmo gets its own area below the picture: 1 m, or 0.5 m at large scales.
@@ -341,13 +347,14 @@ def preview_sheet(
         origin: Teardown-frame position of the grid's first cell, in voxels; rulers and
             markers use Teardown coordinates.
         views: Panels to draw, three per row.
-        annotations: Title and markers (none by default).
+        annotations: Title, markers and see-through indices (none by default).
 
     Returns:
         An RGB image.
 
     Raises:
-        RenderError: If ``views`` is empty or names an unknown view.
+        RenderError: If ``views`` is empty or names an unknown view, or for a see-through
+            index outside 1..255.
         VoxcoreError: If ``origin`` or a marker position is malformed.
     """
     grid = check_grid(grid)
@@ -360,7 +367,8 @@ def preview_sheet(
         as_float3(marker.position, f"position of marker {marker.label!r}")
     scale = choose_scale(grid.shape)
     color_table(colors)  # fail early on a malformed table
-    scene = _Scene(grid, colors, scale, origin, annotations.markers)
+    clear = frozenset(int(i) for i in np.flatnonzero(see_through_mask(annotations.see_through)))
+    scene = _Scene(grid, colors, scale, origin, annotations.markers, clear)
     panels = [_iso_panel(scene, v) if v in CAMERAS else _ortho_panel(scene, v) for v in chosen]
     rows = [panels[i : i + COLUMNS] for i in range(0, len(panels), COLUMNS)]
     header_h = 46

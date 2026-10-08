@@ -8,7 +8,7 @@ from typing import Final
 import numpy as np
 import numpy.typing as npt
 
-from buildup.palette.finish import Finish
+from buildup.palette.finish import Finish, FinishKind
 from buildup.palette.materials import MATERIAL_INDICES, MAX_INDEX, Material, material_of_index
 
 RGB = tuple[int, int, int]
@@ -110,6 +110,18 @@ class Palette:
         if not 1 <= index <= MAX_INDEX or material_of_index(index) is not entry.material:
             raise PaletteError(f"index {index} is not a {entry.material.value} index")
         self._entries[index] = entry
+
+    def see_through(self) -> frozenset[int]:
+        """Indices that are see-through in game: glass material with the glass finish.
+
+        Verified in game for that combination only (docs/TEARDOWN_REFERENCE.md §3); previews
+        draw these indices see-through and every other index opaque.
+        """
+        return frozenset(
+            index
+            for index, entry in self._entries.items()
+            if entry.material is Material.GLASS and entry.finish.kind is FinishKind.GLASS
+        )
 
     def free_slots(self, material: Material) -> int:
         """Number of unused slots left for a material."""

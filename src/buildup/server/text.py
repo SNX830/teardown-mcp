@@ -54,6 +54,7 @@ def project_summary(project: Project, folder: Path, undo_steps: int) -> str:
     lines = [
         f"Project {project.name!r} ({project.kind}), folder {folder}.",
         f"Description: {project.description or '(none)'}",
+        *([f"Handling: {project.handling}"] if project.kind == "vehicle" else []),
         "Frame: X right, Y up, front is -Z; voxels (1 voxel = 0.1 m); ground at Y = 0.",
         "Colors:" if project.colors else "Colors: none (use define_color).",
     ]

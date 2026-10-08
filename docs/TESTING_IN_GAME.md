@@ -214,3 +214,71 @@ About 10 minutes.
 5. Report: what `validate_mod` showed at step 1, what `read_game_log` showed at step 4 (copy
    the text), and whether anything looked wrong. Then ask Claude to remove the test script, or
    delete the mod copy.
+
+## G. Modelling quality (milestone 0.6.0)
+
+Goal: check that Buildup now makes recognisable vehicles, and verify in game what the 0.6.0
+skeleton adds without proof yet: the seated driver (rig), the headlights and rear lights, and
+see-through windows in the previews. About 45 minutes.
+
+### Steps for Nathan
+
+1. Close any Claude Code session still open in `BuildupTest`, then open a new one there (so it
+   uses the new Buildup version).
+2. **Panel of requests.** Paste these four requests one at a time, in the same session, and let
+   Claude finish each one (export, `info.txt`, `spawn.txt`, `validate_mod`) before the next:
+
+   > Avec Buildup, fais-moi une voiture de police : berline bleu foncé et blanche, avec une
+   > rampe de gyrophares sur le toit. Nom du mod : Police Buildup.
+
+   > Avec Buildup, fais-moi un pick-up vert kaki avec un arceau au-dessus de la benne et de
+   > gros pare-chocs. Nom du mod : Pickup Buildup.
+
+   > Avec Buildup, fais-moi un camion de pompiers rouge avec une échelle sur le toit. Nom du
+   > mod : Pompiers Buildup.
+
+   > Avec Buildup, fais-moi une voiture de course basse et longue, jaune, avec un aileron
+   > arrière. Nom du mod : Course Buildup.
+
+   For each one, note roughly how long it took and whether Claude got stuck.
+3. **Previews.** Open each `BuildupTest\workspace\projects\<name>\preview.png`. For each vehicle:
+   - Is it recognisable (give it a mark from 1 to 5)?
+   - Can you see through the windows into the cabin (seats visible behind the glass)?
+4. **In game.** Copy the four folders of `BuildupTest\workspace\mods\` into
+   `Documents\Teardown\mods\`, start a sandbox map, and for each vehicle:
+   - Spawn it: does it look like the preview, the right way up, at a plausible size?
+   - Enter it: is the driver **sitting inside**, in the seat, with the feet inside the car
+     (not sticking out under it, not on the roof)? Is the view from the driver's place at a
+     plausible height?
+   - Drive forward and backward, steer.
+   - Lights: do the headlights light the ground **in front** of the vehicle, and are the rear
+     lights red **at the back**? (Easier to see in a dark place: inside a building, a tunnel,
+     or a night map if you have one.)
+   - Shoot a window: does it break?
+   Take a screenshot of each vehicle from outside, and one from the driver's seat.
+5. Quit the game and report: the marks and remarks of step 3, the answers of step 4 with the
+   screenshots, and anything odd. The agent reads `log.txt` itself.
+6. Afterwards remove the four mod folders from `Documents\Teardown\mods\` (or keep them).
+
+### Result (2026-10-08) and protocol G2
+
+Nathan's marks (1-5, "recognisable"): pickup 2.5 (the roll cage behind is unclear), police car
+2 (recognised mostly by its colors; light bar far too big; odd rear fenders), fire truck 3
+(good ladder), race car 3 (a window does not reach the hood); a Porsche built from a photo,
+outside the panel: 4. In every vehicle the driver sat inside with a plausible view, the
+headlights lit in front and the rear lights at the back, and glass broke. Problems: every
+vehicle sat almost on the ground, steered badly, and reached the same slow speed.
+Addressed with handling presets, raised templates and body-colored wheel arches, to verify
+in G2.
+
+**G2 (short re-test, about 15 minutes).** In a new `BuildupTest` session paste:
+
+> Avec Buildup, fais-moi une berline à partir du modèle sedan, et une voiture de course
+> jaune basse avec un aileron, réglée en 'sports'. Noms des mods : Berline G2 et Course G2.
+
+Then in game, for each: is it still too close to the ground? Does it steer like an official
+car? Is the race car clearly faster than the sedan? Do the wheel arches look normal?
+
+Result (2026-10-08): both at a much more realistic height, normal steering, the race car
+about 120 km/h and the sedan 90 on the game's speedometer (the official race car: 120). The
+shapes were weaker than in G (two vehicles asked in one request).

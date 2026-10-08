@@ -39,15 +39,19 @@ Other facts verified in game:
 _VEHICLE_XML = """\
 VEHICLE PREFAB XML
 
-Structure written by export_model's skeleton (each part verified in game with Buildup's
-calibration car, except the absence of a script wrapper, which follows official prefabs):
+Structure written by export_model's skeleton. The vox, location and wheel parts are verified
+in game with Buildup's calibration car; the absence of a script wrapper follows official
+prefabs; the light and driver rig elements follow official cars and work in game (verified
+with Buildup vehicles; passenger rigs are not verified):
 
 <prefab version="2.0.0">
   <group name="...">
-    <vehicle spring="0.5" damping="0.7" topspeed="60">
+    <vehicle sound="..." spring="..." topspeed="..." ...>   (the project's handling preset)
       <body dynamic="true">
         <vox pos="..." file="MOD/vox/NAME.vox" object="body">
-          <location tags="player" pos="..."/>   (driver position; relative to the vox pos)
+          <light pos="..." rot="0 180 0" type="cone" .../>  (headlight_* anchor; shines forward)
+          <light pos="..." type="area" color="1 .1 .1" .../> (taillight_* anchor; faces back)
+          <location tags="player" pos="..."/>   (driver view point; relative to the vox pos)
           <location tags="vital" pos="..."/>    (official tag; its meaning is not documented)
           <location tags="exhaust" pos="..."/>  (exhaust smoke; verified in game)
         </vox>
@@ -55,6 +59,12 @@ calibration car, except the absence of a script wrapper, which follows official 
           <vox pos="..." file="MOD/vox/NAME.vox" object="wheel_fl"/>
         </wheel>
         ... one wheel element per wheel ...
+        <rig name="driver" tags="driver sort=0" pos="SEAT">   (driver_seat anchor)
+          <location name="seat" tags="seat" pos="0 0 0" rot="80 0 0"/>
+          <location name="ik_head" tags="ik_head" pos="0 0.55 0.3" rot="0 90 0"/>
+          ... ik_hand_l, ik_hand_r, ik_foot_l, ik_foot_r, steeringwheel ...
+        </rig>
+        <rig name="passenger" tags="sort=1" pos="SEAT"> ... </rig>  (passenger_seat anchors)
       </body>
     </vehicle>
   </group>
@@ -63,14 +73,34 @@ calibration car, except the absence of a script wrapper, which follows official 
 Rules:
 - Keep the pos values of the skeleton unless you move parts; they come from the manifest.
 - Official wheel names: fl/bl on the left (-X), fr/br on the right (+X) (official files).
-- Vehicle parameters seen in official files: spring, damping, topspeed, acceleration, strength,
-  antispin, antiroll, difflock, steerassist, friction, smokeintensity, brokenthreshold. Ranges over
-  official vehicles: topspeed 3-120 (typically 60-90), spring 0.2-25 (typically 0.5), damping
-  0.4-25 (typically 0.7). Wheel attributes: drive, steer, travel (typically "-0.1 0.1").
+- Vehicle parameters: the skeleton writes the project's handling preset (set_handling):
+  'car', 'sports', 'offroad', 'van' and 'truck' are the parameter sets of an official
+  saloon car, Crownzygot, Taskmaster pickup, van and semi truck (official files), 'basic' the
+  calibration car's (spring 0.5, damping 0.7, topspeed 60). In game, Buildup vehicles with
+  the basic values (and low bodies) all sat nearly on the ground, steered
+  badly and reached the same speed, slower when heavier. With 'car' and 'sports' Buildup
+  cars steer normally and reach about 90 and 120 km/h (verified in game: topspeed reads as
+  km/h); 'offroad', 'van' and 'truck' are not verified on Buildup models yet. Parameters
+  seen in official files: sound, spring, damping, topspeed, acceleration, strength,
+  antispin, antiroll, difflock, steerassist, friction, smokeintensity, brokenthreshold; their
+  effects are not documented. Wheel attributes: drive, steer, travel (typically "-0.1 0.1").
+- Ground clearance (official files): official cars have their lowest body voxel 0.1-0.3 m
+  above the bottom of the wheels, vans and pickups 0.3 m, trucks and off-road vehicles
+  0.4-0.6 m. In game, a Buildup car with 0.2 m under the body looked right.
 - Verified in game: a vehicle without a sound attribute still has an engine sound; without
-  driver rig locations the driver is shown near the player location.
-- Official vehicles also use light elements, rig elements (driver animation) and scripts;
-  Buildup does not generate them.
+  driver rig the driver is shown hanging below the player location (feet out under the car);
+  with Buildup's driver rig the driver sits inside, and the view is at the player location.
+- Rigs (official files): a rig gives a seated character its pose; its locations are
+  relative to the rig pos. Official cars put the rig's head 0.57 m (Buildup: 0.55 m, half a
+  voxel grid) above and 0.3 m behind
+  the seat location, the feet 0.6 m in front and 0.15 m below, the hands 0.2 m in front, and
+  the player location 0.6 m above and 0.3 m behind the seat. Trucks and machines use an
+  upright seat (rot "0 0 0").
+- Lights (official files): headlights are cone lights (color "1 .9 .8", scale 20, angle 90,
+  penumbra 30), rear lights red area lights; both sit about 0.1 m inside the lamp surface.
+  A light without rot shines towards +Z: a headlight in a vox without rot needs
+  rot="0 180 0" (verified in game: Buildup's headlights light the ground in front).
+- Official vehicles also use sounds and scripts; Buildup does not generate them.
 """
 
 _PROP_XML = """\
@@ -148,35 +178,53 @@ Hardness (official documentation; sledgehammer / blowtorch / guns / explosives):
 Avoid enclosing soft material inside hard material (it gets stuck, official documentation).
 
 Finishes (rendering only, never the physical material): matte, metal, glass, emissive
-(glows). Buildup's glass finish uses the material setting of official car windows; it renders
-transparent in MagicaVoxel, its look in game is not verified yet. Official cars: body paint in
-weak metal, windows in glass with a glass finish, lights emissive (official files).
+(glows). Glass material with the glass finish is see-through in game and breaks when shot
+(verified in game); previews draw it see-through too. Glass material with the emissive finish
+glows and breaks (verified in game): use it for lamps. Official cars: body paint in weak
+metal, windows in glass with a glass finish, lights emissive (official files).
 """
 
 
 _WORKFLOW = """\
 WORKFLOW FOR A VEHICLE
 
+0. If the user can, ask for a reference picture of the vehicle (a photo or a drawing) and
+   follow its proportions and details: a Buildup car built from a photo was judged much more
+   realistic than ones built from a short description.
 1. create_project(name, kind="vehicle").
-2. define_color for each color (material + RGB): body paint (weak metal), windows (glass),
-   tires, lights (finish emissive)...
-3. add_part("body"), then draw it with draw_box / draw_wedge / cut_edges / draw_cylinder /
-   draw_ellipsoid. Coordinates are model-frame voxels; ground at Y = 0, front at -Z.
-   For scale, the official saloon car body is 21 voxels wide, 13 high and 44 long (official
+2. Fastest: start_from_template (sedan, suv, pickup, van, truck) builds a complete vehicle
+   (cabin, windows, seats, lights, wheels, anchors); then customize it and go to step 7.
+   Otherwise:
+3. define_color for each color (material + RGB): body paint (weak metal), windows (glass),
+   tires, lights (glass with finish emissive)...
+4. add_part("body"), then draw it: draw_profile (a side silhouette extruded across the width,
+   with rounded sides) for the body, then draw_box / cut_edges / draw_wedge / draw_cylinder /
+   draw_ellipsoid to carve the cabin and windows and add details. Coordinates are model-frame
+   voxels; ground at Y = 0, front at -Z. Official sizes (width x height x length): saloon car
+   21 x 13 x 44 voxels, SUV 23 x 16 x 49, pickup 25 x 16 x 53, van 27 x 23 x 55 (official
    files). Use mirror_part to make the model symmetric.
-4. add_wheels: wheels outside the body with a 1-voxel gap (inner_x = half the body width + 1,
-   as on Buildup's calibration car, verified in game), or under wheel arches carved into the
-   body. Wheels must not overlap the body.
-5. set_anchor for player (driver position: official cars put it on the left, negative X),
-   vital (official tag, meaning not documented; the calibration car had it in the front part of
-   the body) and exhaust (smoke comes out there, verified in game; the calibration car had it
-   at the rear).
-6. preview and inspect after each step; check that there is a single part per object
-   (voxels touching only by edges may fall apart when damaged) and no overlaps.
-7. export_model, then write info.txt and spawn.txt (teardown_reference("mod_files")) and adjust
-   prefab/NAME.xml if needed (teardown_reference("vehicle_xml"); lookup_api for Lua scripts).
-   Run validate_mod and fix every error.
-8. The user copies the mod folder into Documents\\Teardown\\mods\\ and tests it; then
+   Keep the underbody off the ground like official vehicles: 2-3 voxels for cars, 3 for
+   vans and pickups, 4-6 for trucks and off-road vehicles (official files; in game, a
+   Buildup car with 2 voxels under the body looked right).
+5. add_wheels: under wheel arches carved into the body (official cars have their wheels
+   inside the body width), or outside the body with a 1-voxel gap (inner_x = half the body
+   width + 1, as on Buildup's calibration car, verified in game). Wheels must not overlap the
+   body.
+6. set_anchor: driver_seat (the driver's hip point, on the left, negative X, with room for
+   the head 5.5 voxels above and a floor under the feet 6 voxels in front), player (the view
+   point, 6 voxels above and 3 behind the seat point in official cars), vital (official tag,
+   meaning not documented; in the front part of the body), exhaust (smoke comes out there,
+   verified in game; at the rear), headlight_l/r and taillight_l/r at the lamp voxels,
+   passenger_seat for passengers. set_handling picks the driving parameters of the vehicle's
+   kind ('sports' for a racing car, 'truck' for heavy vehicles).
+7. preview and inspect after each step: glass is drawn see-through, as in game; check that
+   there is a single part per object (voxels touching only by edges may fall apart when
+   damaged) and no overlaps.
+8. export_model (fix its warnings: they name the seat, overlap or loose-piece problem), then
+   write info.txt and spawn.txt (teardown_reference("mod_files")) and adjust prefab/NAME.xml
+   if needed (teardown_reference("vehicle_xml"); lookup_api for Lua scripts). Run
+   validate_mod and fix every error.
+9. The user copies the mod folder into Documents\\Teardown\\mods\\ and tests it; then
    read_game_log(mod=...) shows the game's errors for the mod.
 """
 

@@ -28,11 +28,14 @@ from buildup.project import (
     clip_to_world,
     cylinder_shape,
     default_mod_name,
+    drawn_profile,
     edge_cut_shape,
     ellipsoid_shape,
     export_project,
+    polygon_profile,
     wedge_shape,
 )
+from buildup.project.templates import apply_template
 from buildup.render import (
     DEFAULT_VIEWS,
     Annotations,
@@ -53,7 +56,10 @@ from buildup.server.common import (
     user_errors,
 )
 from buildup.teardown import reference
+from buildup.teardown.anchors import anchor_role, suggested_player
+from buildup.teardown.handling import HANDLING
 from buildup.teardown.install import GamePaths
+from buildup.voxcore.profile import Bevel
 
 logger = logging.getLogger(__name__)
 
@@ -67,10 +73,15 @@ in voxels (1 voxel = 0.1 m). Convention: ground at Y = 0, center line at X = 0. 
 start (inclusive) and end (exclusive) cells: start [0, 0, 0], end [10, 5, 20] fills 10 x 5 x 20
 voxels; points (centers, anchors) are continuous coordinates (voxel i spans i to i + 1).
 
-Workflow: create_project -> define_color (materials decide physics) -> add_part + draw_* tools
--> add_wheels -> set_anchor (player, vital, exhaust) -> preview / inspect (look at the images:
-the views are true views, the front view shows the model's right side on the image left) ->
-export_model -> write info.txt and spawn.txt -> validate_mod. Read teardown_reference('workflow')
+Ask the user for a reference picture of the vehicle when possible: models built from a
+picture come out much closer to what the user wants.
+
+Workflow: create_project -> start_from_template (a complete car, SUV, pickup, van or truck to
+customize) or define_color (materials decide physics) + add_part + draw_* tools (draw_profile
+for bodies) + add_wheels + set_anchor (driver_seat, player, vital, exhaust, lights) ->
+set_handling (how it drives) -> preview / inspect (look at the images: the views are true
+views, the front view shows the model's right side on the image left; glass is see-through)
+-> export_model -> write info.txt and spawn.txt -> validate_mod. Read teardown_reference('workflow')
 first, and teardown_reference('vehicle_xml') before editing XML; lookup_api documents the game's
 Lua functions for scripts. After the user has played, read_game_log shows the game's errors for
 the mod. Every model edit can be undone with undo.
@@ -118,6 +129,8 @@ MaterialName = Literal[
 ]
 ViewName = Literal["front", "back", "left", "right", "top", "bottom", "iso_front", "iso_back"]
 Topic = Literal["workflow", "frame", "materials", "vehicle_xml", "prop_xml", "mod_files"]
+TemplateName = Literal["sedan", "suv", "pickup", "van", "truck"]
+HandlingName = Literal["car", "sports", "offroad", "van", "truck", "basic"]
 
 
 class AxleSpec(BaseModel):
@@ -156,6 +169,7 @@ def create_server(workspace: Path, game: GamePaths | None = None) -> MCPServer:
         _project_tools,
         _drawing_tools,
         _assembly_tools,
+        _template_tools,
         _inspection_tools,
         _export_tools,
         coherence_tools,
@@ -440,6 +454,107 @@ def _drawing_tools(mcp: MCPServer, ctx: Context) -> None:
             lambda p: draw_result(p, part, shapes, mode, color),
         )
 
+    @mcp.tool(annotations=EDIT, structured_output=False)
+    def draw_profile(
+        project: ProjectName,
+        part: PartName,
+        plane: Annotated[
+            Literal["side", "front", "top"],
+            Field(
+                description="'side': a silhouette seen from the left, points [z, y], extruded "
+                "across X (car bodies); 'front': points [x, y], extruded along Z; 'top': points "
+                "[x, z], extruded along Y."
+            ),
+        ],
+        span: Annotated[
+            tuple[int, int],
+            Field(
+                description="First cell and the cell after the last one along the extrusion "
+                "axis (side: x from/to, for example [-10, 10] for a body 2 m wide)."
+            ),
+        ],
+        points: Annotated[
+            list[tuple[float, float]] | None,
+            Field(
+                description="Polygon corners in voxels, in order, in the plane's coordinates "
+                "(side: [z, y]); cells whose center is inside are filled. Corners on whole "
+                "numbers cover the same cells as a box with those corners."
+            ),
+        ] = None,
+        rows: Annotated[
+            list[str] | None,
+            Field(
+                description="Or a drawing, one character per voxel, the top row first: '#' "
+                "(any character) fills, '.' or space is empty. side: characters go front to "
+                "back (+Z), as in the left preview; front: along +X (seen from the back); top: "
+                "seen from above, front at the top, characters along +X."
+            ),
+        ] = None,
+        origin: Annotated[
+            tuple[int, int] | None,
+            Field(
+                description="With rows: model cell of the drawing's bottom-left character "
+                "(first character of the last row), in the plane's coordinates (side: [z, y])."
+            ),
+        ] = None,
+        bevel: Annotated[
+            int,
+            Field(
+                ge=0,
+                le=32,
+                description="Round or chamfer the silhouette's edges at both ends of the "
+                "extrusion (side: the body's left and right edges), in voxels; 0 = square. "
+                "Must be less than half the span; a round bevel needs 2 or more.",
+            ),
+        ] = 0,
+        bevel_style: Annotated[
+            Literal["chamfer", "round"],
+            Field(
+                description="'chamfer': 45 degree stair (1 removes the edge row); 'round': "
+                "quarter circle of radius bevel (gentler; use at least 2)."
+            ),
+        ] = "chamfer",
+        color: ColorName = None,
+        mode: ModeArg = "add",
+    ) -> str:
+        """Add, paint or carve a silhouette extruded across the model: the fastest way to a body.
+
+        Draw a vehicle's side outline once (hood, windshield, roof, rear) and extrude it across
+        the width; bevel rounds the body's sides. Example, a car body 2 m wide, 4.4 m long
+        (front at z = -22), floor at y = 3, roof at y = 14: plane 'side', span [-10, 10],
+        points [[-22, 3], [22, 3], [22, 9], [10, 10], [6, 14], [-4, 14], [-10, 10],
+        [-22, 8]], bevel 2. Then carve the cabin and windows, or paint them, with the same
+        tool or draw_box. A drawing (rows + origin) is easier for small details.
+        """
+        with user_errors():
+            shape_bevel = Bevel(bevel, bevel_style)
+            if bevel_style == "round" and bevel == 1:
+                raise ProjectError("a round bevel of 1 removes nothing: use 2 or more, or chamfer")
+            if span[0] >= span[1]:
+                raise ProjectError(
+                    f"span {span[0]}..{span[1]} is empty: the first value must be below the second"
+                )
+            if 2 * bevel >= span[1] - span[0] and bevel:
+                raise ProjectError(
+                    f"bevel {bevel} is too large for a span of {span[1] - span[0]} voxels: "
+                    "it must be less than half the span"
+                )
+            if rows is not None:
+                if points is not None or origin is None:
+                    raise ProjectError("with rows, give origin and no points")
+                shape = drawn_profile(plane, rows, origin, span, shape_bevel)
+            elif points is not None:
+                if origin is not None:
+                    raise ProjectError("origin goes with rows (a drawing), not with points")
+                shape = polygon_profile(plane, points, span, shape_bevel)
+            else:
+                raise ProjectError("give points (a polygon) or rows with origin (a drawing)")
+        return ctx.edit(
+            project,
+            f"draw_profile {mode} on {part}",
+            lambda p: draw_result(p, part, [shape], mode, color),
+        )
+
 
 def _assembly_tools(mcp: MCPServer, ctx: Context) -> None:
     """Whole-part operations, wheels and anchors."""
@@ -558,8 +673,11 @@ def _assembly_tools(mcp: MCPServer, ctx: Context) -> None:
         name: Annotated[
             str,
             Field(
-                description="'player' (driver), 'vital', 'exhaust' become vehicle locations "
-                "in the skeleton; other names are only exported in the manifest."
+                description="Names with a role in the vehicle skeleton: 'player', 'vital', "
+                "'exhaust' (locations), 'driver_seat', 'passenger_seat', 'passenger_seat_2'... "
+                "(seated character rigs), 'headlight_l', 'headlight_r'... (forward lights), "
+                "'taillight_l', 'taillight_r'... (red rear lights). 'hinge_*' and other names "
+                "are only exported in the manifest."
             ),
         ],
         position: Annotated[
@@ -567,20 +685,115 @@ def _assembly_tools(mcp: MCPServer, ctx: Context) -> None:
             Field(description="Point [x, y, z] in voxels (continuous); null deletes the anchor."),
         ],
     ) -> str:
-        """Set a named point of the model (driver position, exhaust, lights...).
+        """Set a named point of the model: driver seat and view, exhaust, lights, hinges...
 
-        Official vehicles use player (the driver is shown near it; official cars put it on the
-        left, negative X), vital (meaning not documented) and exhaust (exhaust smoke comes out
-        there, verified in game). Anchors stay put when parts move. Example: player [-4, 9, 2].
+        driver_seat is the driver's hip point: put it 0 to 3 voxels above the seat or floor
+        voxels, on the left (negative X) like official cars, with 6 voxels of free space above
+        and the cabin floor 6 voxels in front at foot level. The export writes a seated driver
+        rig there (official car layout, not verified in game yet) and warns if the head is in
+        the body or the feet hang below it. player is the driver's view point: official cars
+        put it 6 voxels above and 3 behind the seat point. exhaust: smoke comes out there
+        (verified in game). Lights: at the lamp voxels, about 1 voxel inside the surface.
+        Anchors stay put when parts move. Example: driver_seat [-4, 5.5, 0], player
+        [-4, 11.5, 3].
         """
 
         def change(p: Project) -> str:
             p.set_anchor(name, position)
             if position is None:
                 return f"Deleted anchor {name!r}."
-            return f"Anchor {name!r} at {text.point_text(p.anchors[name])}."
+            role = anchor_role(name)
+            point = p.anchors[name]
+            meaning = role.meaning
+            if p.kind != "vehicle" and role.xml != "manifest":
+                meaning = "exported in the manifest only (seats, lights and locations are "
+                meaning += "written for vehicles only)"
+            result = f"Anchor {name!r} at {text.point_text(point)}: {meaning}."
+            if p.kind == "vehicle" and name == "driver_seat" and "player" not in p.anchors:
+                result += (
+                    " player is not set: official cars put it at "
+                    f"{text.point_text(suggested_player(point))}."
+                )
+            return result
 
         return ctx.edit(project, f"set_anchor {name}", change)
+
+
+def _template_tools(mcp: MCPServer, ctx: Context) -> None:
+    """Complete starting models."""
+
+    @mcp.tool(annotations=EDIT, structured_output=False)
+    def start_from_template(
+        project: ProjectName,
+        template: Annotated[
+            TemplateName,
+            Field(
+                description="'sedan' (4.4 m car), 'suv' (4.8 m, high), 'pickup' (5.4 m, open "
+                "bed), 'van' (5.6 m, closed cargo area), 'truck' (6.4 m box truck, 3 axles)."
+            ),
+        ],
+        length_m: Annotated[
+            float | None,
+            Field(description="Body length in meters, within 20 % of the template's."),
+        ] = None,
+        width_m: Annotated[
+            float | None,
+            Field(description="Body width in meters, within 20 % of the template's."),
+        ] = None,
+        paint_rgb: Annotated[
+            tuple[int, int, int] | None,
+            Field(description="Body color [r, g, b] 0-255; default: the template's."),
+        ] = None,
+    ) -> str:
+        """Build a complete vehicle in an empty vehicle project, ready to customize and export.
+
+        The result exports without warnings: a body with a cabin, glass windows, seats,
+        dashboard and steering wheel, glowing lamp voxels, lined wheel arches, wheels, and the
+        anchors player, vital, exhaust, driver_seat, passenger_seat(s), headlight_l/r and
+        taillight_l/r, and the handling preset of its kind (set_handling). The seated driver
+        rig and the lights work in game (verified on vehicles built from templates). It uses the
+        colors paint, trim, glass, seat, tire, rim, headlight and taillight. Then make it
+        yours: preview it, recolor with define_color, reshape with draw_profile / draw_box /
+        cut_edges (carve, paint, add), add details (spoilers, roof racks, bull bars...), and
+        keep the cabin room (export warns if the driver no longer fits). Create the project
+        first with create_project(kind='vehicle').
+        """
+
+        def change(p: Project) -> str:
+            return "\n".join(
+                apply_template(p, template, length_m=length_m, width_m=width_m, paint_rgb=paint_rgb)
+            )
+
+        return ctx.edit(project, f"start_from_template {template}", change)
+
+    @mcp.tool(annotations=EDIT, structured_output=False)
+    def set_handling(
+        project: ProjectName,
+        preset: Annotated[
+            HandlingName,
+            Field(
+                description="'car' (official saloon car), 'sports' (official Crownzygot, "
+                "topspeed 120), 'offroad' (official Taskmaster pickup: pickups, SUVs), 'van' "
+                "(official van), 'truck' (official semi truck: trucks, buses), 'basic' "
+                "(Buildup's calibration car)."
+            ),
+        ],
+    ) -> str:
+        """Choose how the vehicle drives: the speed, engine and suspension the skeleton writes.
+
+        Each preset is the parameter set of one official vehicle of that kind (official
+        files); 'car' and 'sports' were verified in game on Buildup cars (normal steering,
+        about 90 and 120 km/h), the others not yet. New projects
+        use 'car'; templates pick the preset of their kind. Choose 'sports' for a
+        racing car, 'truck' for anything heavy. Export again with skeleton='overwrite' (or edit
+        the vehicle element of the prefab) for an already exported model.
+        """
+
+        def change(p: Project) -> str:
+            p.set_handling(preset)
+            return f"Handling {preset!r}: {HANDLING[preset].summary}."
+
+        return ctx.edit(project, f"set_handling {preset}", change)
 
 
 def _inspection_tools(mcp: MCPServer, ctx: Context) -> None:
@@ -602,6 +815,8 @@ def _inspection_tools(mcp: MCPServer, ctx: Context) -> None:
         Orthographic views are true views from outside: the front view (camera at -Z) shows the
         model's right side (+X) on the image LEFT; each panel names the side every image edge
         shows. Rulers are model-frame meters. Magenta markers: wheel axles and anchors.
+        Glass colors (glass material, glass finish) are drawn translucent, as they look in
+        game: what is behind a window shows through it.
         The image is also saved as preview.png in the project folder.
         """
         loaded = ctx.read(project)
@@ -617,12 +832,13 @@ def _inspection_tools(mcp: MCPServer, ctx: Context) -> None:
                 if all(origin[i] <= point[i] <= end[i] for i in range(3))
             )
             title = f"{loaded.name}" + (f" / part {part}" if part else "")
+            palette = loaded.palette()
             image = preview_sheet(
                 grid,
-                loaded.palette().rgba(),
+                palette.rgba(),
                 origin=origin,
                 views=[as_view(v) for v in views] if views else DEFAULT_VIEWS,
-                annotations=Annotations(title=title, markers=markers),
+                annotations=Annotations(title, markers, palette.see_through()),
             )
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")

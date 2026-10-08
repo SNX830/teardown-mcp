@@ -6,6 +6,7 @@ Positions are in the model frame: the Teardown frame (X right, Y up, front is -Z
 voxel ``i`` spans ``i`` to ``i + 1``.
 """
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final, Literal
@@ -13,16 +14,32 @@ from typing import Final, Literal
 import numpy as np
 
 from buildup.palette import Palette
+from buildup.teardown.anchors import (
+    VEHICLE_LOCATIONS,
+    Point,
+    anchor_role,
+    player_in_range,
+    rig_points,
+    suggested_player,
+)
+from buildup.teardown.handling import DEFAULT_HANDLING, HANDLING
 from buildup.voxcore import EMPTY, Grid, Vec3, components
 from buildup.voxio import MAX_MODEL_SIZE, xml_origin
 
 Kind = Literal["vehicle", "prop"]
 KINDS: Final = ("vehicle", "prop")
-Point = tuple[float, float, float]
 
-#: Location tags read by vehicles (docs/TEARDOWN_REFERENCE.md §6, FILES; effect verified in
-#: game for our calibration car, §5).
-VEHICLE_LOCATIONS: Final = ("player", "vital", "exhaust")
+__all__ = [
+    "KINDS",
+    "VEHICLE_LOCATIONS",
+    "Assembly",
+    "AssemblyError",
+    "Kind",
+    "PlacedObject",
+    "Point",
+    "Wheel",
+    "check_assembly",
+]
 
 
 class AssemblyError(ValueError):
@@ -118,6 +135,7 @@ class Assembly:
         anchors: Named points (continuous voxel coordinates).
         palette: Palette with an entry for every index the objects use.
         color_names: Name of each palette index, for the manifest.
+        handling: Driving preset of a vehicle (``buildup.teardown.handling``).
     """
 
     name: str
@@ -127,6 +145,7 @@ class Assembly:
     anchors: Mapping[str, Point]
     palette: Palette
     color_names: Mapping[int, str]
+    handling: str = DEFAULT_HANDLING
 
     @property
     def objects(self) -> list[PlacedObject]:
@@ -138,8 +157,8 @@ def check_assembly(assembly: Assembly) -> list[str]:
     """Check that the model can be exported and list what may go wrong in game.
 
     Returns:
-        Warnings (export still possible): missing vehicle locations, overlapping objects,
-        objects made of several face-connected parts.
+        Warnings (export still possible): missing vehicle locations, seats that do not fit
+        the body, overlapping objects, objects made of several face-connected parts.
 
     Raises:
         AssemblyError: If the model has no body object, if a vehicle has no wheel, or if a
@@ -151,6 +170,8 @@ def check_assembly(assembly: Assembly) -> list[str]:
         raise AssemblyError("a vehicle needs wheels: add them with add_wheels")
     if assembly.kind == "prop" and assembly.wheels:
         raise AssemblyError("a prop cannot have wheels")
+    if assembly.handling not in HANDLING:
+        raise AssemblyError(f"unknown handling preset {assembly.handling!r}")
     warnings: list[str] = []
     if assembly.kind == "vehicle":
         missing = [tag for tag in VEHICLE_LOCATIONS if tag not in assembly.anchors]
@@ -161,6 +182,7 @@ def check_assembly(assembly: Assembly) -> list[str]:
                 + " (every drivable official vehicle has a player location and most official cars "
                 "have vital and exhaust; set them with set_anchor)"
             )
+        warnings += _seat_warnings(assembly)
     objects = assembly.objects
     for i, a in enumerate(objects):
         for b in objects[i + 1 :]:
@@ -178,6 +200,81 @@ def check_assembly(assembly: Assembly) -> list[str]:
                 f"object {obj.name!r} is made of {len(parts)} separate pieces (voxels that "
                 "touch only by an edge or a corner do not hold together): inspect it and join "
                 "or remove the small pieces"
+            )
+    return warnings
+
+
+def _fmt(point: Point) -> str:
+    return "[" + ", ".join(f"{v:g}" for v in point) + "]"
+
+
+def _solid(objects: tuple[PlacedObject, ...], cell: Vec3) -> bool:
+    """Whether a body object has a voxel at a model-frame cell."""
+    for obj in objects:
+        local = [cell[i] - obj.origin[i] for i in range(3)]
+        inside = all(0 <= local[i] < obj.size[i] for i in range(3))
+        if inside and obj.grid[local[0], local[1], local[2]] != EMPTY:
+            return True
+    return False
+
+
+def _cell(point: Point) -> Vec3:
+    return (math.floor(point[0]), math.floor(point[1]), math.floor(point[2]))
+
+
+def _floor_below(objects: tuple[PlacedObject, ...], point: Point) -> bool:
+    """Whether a body voxel is at a point or under it, in its column (feet rest on a floor)."""
+    x, y, z = _cell(point)
+    lowest = min(obj.origin[1] for obj in objects)
+    return any(_solid(objects, (x, h, z)) for h in range(y, lowest - 1, -1))
+
+
+def _seat_warnings(assembly: Assembly) -> list[str]:
+    """Seats (rigs) that would show the character through the body or hanging below it."""
+    anchors = assembly.anchors
+    warnings: list[str] = []
+    seat = anchors.get("driver_seat")
+    if seat is None:
+        warnings.append(
+            "no driver_seat anchor: without a driver rig the driver is shown hanging below the "
+            "player location (verified in game: feet out under the car); set driver_seat at "
+            "the driver's hip point, about 0 to 3 voxels above the seat or floor voxels"
+        )
+    elif "player" not in anchors:
+        warnings.append(
+            f"driver_seat is set but not player: official cars put player at "
+            f"{_fmt(suggested_player(seat))} for this seat (0.6 m above, 0.3 m behind)"
+        )
+    elif not player_in_range(seat, anchors["player"]):
+        warnings.append(
+            f"player {_fmt(anchors['player'])} is far from where official cars put it for the "
+            f"driver_seat: about {_fmt(suggested_player(seat))} (0.5 to 0.9 m above the seat "
+            "point, -0.3 to +0.35 m along Z); the view and the seated driver may not match"
+        )
+    seats = sorted(n for n in anchors if anchor_role(n).xml in ("driver_rig", "passenger_rig"))
+    for name in seats:
+        points = rig_points(anchors[name], driver=name == "driver_seat")
+        inside = [
+            part for part in ("seat", "ik_head") if _solid(assembly.body, _cell(points[part]))
+        ]
+        if inside:
+            warnings.append(
+                f"{name}: the character's {' and '.join(p.removeprefix('ik_') for p in inside)} "
+                f"point ({', '.join(_fmt(points[p]) for p in inside)}) is inside the body's "
+                "voxels: carve the cabin or move the seat (the head point is 5.5 voxels above "
+                "and 3 behind the seat point)"
+            )
+        hanging = [
+            foot
+            for foot in ("ik_foot_l", "ik_foot_r")
+            if not _floor_below(assembly.body, points[foot])
+        ]
+        if hanging:
+            feet = ", ".join(_fmt(points[f]) for f in hanging)
+            warnings.append(
+                f"{name}: no body voxel under the feet ({feet}, 1.5 voxels below and 6 in front "
+                "of the seat point): the legs would hang below the body; add a cabin floor or "
+                "move the seat"
             )
     return warnings
 

@@ -262,3 +262,20 @@ def test_grid_with_wrong_type_is_refused() -> None:
     project.draw("a", box_shape((0, 0, 0), (1, 1, 1)), "add", "c")
     with pytest.raises(ProjectFileError, match="not a 3D uint8"):
         project_from_json(project_to_json(project), {"arr_0": np.ones((1, 1), np.uint8)})
+
+
+def test_handling_is_saved_and_old_files_default_to_car(tmp_path: Path) -> None:
+    store = ProjectStore(tmp_path)
+    store.create("car", "vehicle", "")
+    with store.edit("car", "set_handling") as project:
+        project.set_handling("truck")
+    assert store.load("car").handling == "truck"
+    path = store.folder("car") / "project.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    del data["handling"]  # written by 0.5.0
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert store.load("car").handling == "car"
+    data["handling"] = "rocket"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ProjectFileError, match="handling"):
+        store.load("car")

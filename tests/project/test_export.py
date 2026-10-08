@@ -28,10 +28,19 @@ def car() -> Project:
     p.add_part("body")
     p.draw("body", box_shape((-8, 3, -20), (8, 9, 20)), "add", "paint")
     p.draw("body", box_shape((-7, 9, -4), (7, 13, 8)), "add", "window")
+    p.draw("body", box_shape((-7, 5, -8), (0, 13, 6)), "carve", None)  # driver's cabin
     p.add_wheels([Axle(-13, steer=True), Axle(13, drive=True)], WheelLayout(8, 2, 8), "tire")
-    for name, point in {"player": (-4, 9, 2), "vital": (0, 6, -15), "exhaust": (5, 4, 20)}.items():
+    for name, point in SEATED.items():
         p.set_anchor(name, point)
     return p
+
+
+SEATED = {
+    "player": (-4, 11.5, 3),
+    "vital": (0, 6, -15),
+    "exhaust": (5, 4, 20),
+    "driver_seat": (-4, 5.5, 0),
+}
 
 
 def test_export_writes_a_mod_folder(car: Project, tmp_path: Path) -> None:
@@ -144,4 +153,4 @@ def test_build_assembly_splits_body_and_wheels(car: Project) -> None:
     assert [o.name for o in assembly.body] == ["body"]
     assert [w.name for w in assembly.wheels] == ["fl", "fr", "bl", "br"]
     assert assembly.color_names == {121: "paint", 1: "window", 153: "tire"}
-    assert assembly.anchors["player"] == (-4.0, 9.0, 2.0)
+    assert assembly.anchors["player"] == (-4.0, 11.5, 3.0)

@@ -36,8 +36,10 @@ from buildup.project.shapes import (
     box_shape,
     clip_to_world,
     cylinder_shape,
+    drawn_profile,
     edge_cut_shape,
     ellipsoid_shape,
+    polygon_profile,
     wedge_shape,
 )
 from buildup.project.store import MAX_HISTORY, ProjectFileError, ProjectStore
@@ -72,10 +74,12 @@ __all__ = [
     "clip_to_world",
     "cylinder_shape",
     "default_mod_name",
+    "drawn_profile",
     "edge_cut_shape",
     "ellipsoid_shape",
     "export_project",
     "parse_finish",
     "parse_material",
+    "polygon_profile",
     "wedge_shape",
 ]

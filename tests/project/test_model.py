@@ -387,3 +387,14 @@ def test_composed(car: Project) -> None:
     assert roof is not None
     assert roof[1] == (1, 2, 0)
     assert roof[0].shape == (1, 1, 1)
+
+
+def test_set_handling() -> None:
+    car = Project("car", "vehicle")
+    assert car.handling == "car"
+    car.set_handling("sports")
+    assert car.handling == "sports"
+    with pytest.raises(ProjectError, match="presets: car, sports"):
+        car.set_handling("rocket")
+    with pytest.raises(ProjectError, match="only vehicle"):
+        Project("crate", "prop").set_handling("car")

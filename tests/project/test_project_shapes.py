@@ -9,8 +9,10 @@ from buildup.project import (
     Shape,
     box_shape,
     cylinder_shape,
+    drawn_profile,
     edge_cut_shape,
     ellipsoid_shape,
+    polygon_profile,
     wedge_shape,
 )
 from buildup.project.names import (
@@ -22,6 +24,7 @@ from buildup.project.names import (
 )
 from buildup.project.shapes import clip_to_world, inside_world
 from buildup.voxcore import VoxcoreError
+from buildup.voxcore import profile as vp
 from buildup.voxcore import shapes as vs
 
 # A reference grid covering model cells -20..20 on every axis.
@@ -54,6 +57,23 @@ CASES: list[tuple[Shape, np.ndarray]] = [
     (
         ellipsoid_shape((0.5, 3, -2), (5, 3.5, 7)),
         vs.ellipsoid(SIZE, (20.5, 23, 18), (5, 3.5, 7)),
+    ),
+    (  # a side polygon through whole coordinates is a box: z -5..6, y 0..2, x -3..4
+        polygon_profile("side", [(-5, 0), (6, 0), (6, 2), (-5, 2)], (-3, 4), vp.Bevel()),
+        vs.box(SIZE, (17, 20, 15), (24, 22, 26)),
+    ),
+    (  # a front triangle extruded along Z, bevelled
+        polygon_profile("front", [(-6, 0), (6, 0), (0, 9)], (-8, 8), vp.Bevel(2, "round")),
+        vp.extrude(
+            SIZE,
+            vp.Profile(
+                "front",
+                vp.polygon_section([(14, 20), (26, 20), (20, 29)], (14, 20), (12, 9)),
+                (14, 20),
+                (12, 28),
+                vp.Bevel(2, "round"),
+            ),
+        ),
     ),
 ]
 
@@ -156,3 +176,83 @@ def test_mod_names() -> None:
             check_mod_name(bad)
     assert default_mod_name("red_pickup") == "Red Pickup"
     assert default_mod_name("car__2") == "Car 2"
+
+
+def test_drawn_side_profile_runs_front_to_back_and_up() -> None:
+    shape = drawn_profile("side", ["#..", "###"], (-4, 2), (0, 1), vp.Bevel())
+    cells = np.argwhere(shape.mask((0, 0, -10), (1, 10, 20)))
+    # (x, y, z) cells, z from -4 (first character), y = 2 for the last row, 3 for the first.
+    found = sorted((int(y), int(z) - 10) for _, y, z in cells)
+    assert found == [(2, -4), (2, -3), (2, -2), (3, -4)]
+    assert shape.start == (0, 2, -4)
+    assert shape.end == (1, 4, -1)
+
+
+def test_drawn_top_profile_has_the_front_at_the_top() -> None:
+    # Seen from above, front at the top: the first row is the frontmost (lowest z).
+    shape = drawn_profile("top", ["#.", "##"], (3, 5), (0, 2), vp.Bevel())
+    cells = np.argwhere(shape.mask((0, 0, 0), (10, 2, 10)))
+    found = sorted({(int(x), int(z)) for x, _, z in cells})
+    assert found == [(3, 4), (3, 5), (4, 5)]
+    assert {int(y) for _, y, _ in cells} == {0, 1}
+
+
+def test_drawn_front_profile_runs_along_x() -> None:
+    shape = drawn_profile("front", ["##", "#."], (-1, 0), (2, 3), vp.Bevel())
+    cells = np.argwhere(shape.mask((-5, 0, 0), (10, 5, 5)))
+    found = sorted((int(x) - 5, int(y)) for x, y, _ in cells)
+    assert found == [(-1, 0), (-1, 1), (0, 1)]
+    assert {int(z) for _, _, z in cells} == {2}
+
+
+@pytest.mark.parametrize(
+    ("make", "message"),
+    [
+        (
+            lambda: polygon_profile("diagonal", [(0, 0), (1, 0), (0, 1)], (0, 1), vp.Bevel()),
+            "plane",
+        ),
+        (lambda: polygon_profile("side", [], (0, 1), vp.Bevel()), "points"),
+        (lambda: polygon_profile("side", [(0, 0), (1, 0)], (0, 1), vp.Bevel()), "at least 3"),
+        (lambda: polygon_profile("side", [(0, 0), (5, 0), (9, 0)], (0, 1), vp.Bevel()), "flat"),
+        (
+            lambda: polygon_profile("side", [(0, 0), (0.2, 0), (0.2, 3)], (0, 1), vp.Bevel()),
+            "no cell center",
+        ),
+        (lambda: polygon_profile("side", [(0, 0), (9e9, 0), (0, 1)], (0, 1), vp.Bevel()), "within"),
+        (
+            lambda: polygon_profile(
+                "side", [(0, 0), (1, 0), (0, float("nan"))], (0, 1), vp.Bevel()
+            ),
+            "finite",
+        ),
+        (lambda: polygon_profile("side", [(0, 0), (4, 0), (0, 4)], (2, 2), vp.Bevel()), "empty"),
+        (lambda: polygon_profile("side", [(0, 0)] * 300, (0, 1), vp.Bevel()), "at most"),
+        (
+            lambda: polygon_profile(
+                "side", [(400, 400), (500, 400), (400, 500)], (0, 1), vp.Bevel()
+            ),
+            "flat or outside",
+        ),
+        (lambda: drawn_profile("side", "###", (0, 0), (0, 1), vp.Bevel()), "list of strings"),
+        (lambda: drawn_profile("side", ["#" * 300], (0, 0), (0, 1), vp.Bevel()), "at most"),
+        (lambda: drawn_profile("side", ["..."], (0, 0), (0, 1), vp.Bevel()), "fills no cell"),
+        (lambda: drawn_profile("side", ["#"], (0.5, 0), (0, 1), vp.Bevel()), "integer"),
+        (lambda: drawn_profile("side", ["#"], (0, 0, 0), (0, 1), vp.Bevel()), "two values"),
+    ],
+)
+def test_invalid_profiles(make: Callable[[], object], message: str) -> None:
+    with pytest.raises(VoxcoreError, match=message):
+        make()
+
+
+def test_profile_far_outside_model_space_keeps_its_bevel_inside() -> None:
+    # A huge polygon is cut to model space plus a margin: inside model space, the bevel at the
+    # ends of the extrusion is the one of the polygon's own outline, far away.
+    big = polygon_profile(
+        "side", [(-4000, 0), (4000, 0), (4000, 10), (-4000, 10)], (0, 6), vp.Bevel(2)
+    )
+    mask = big.mask((0, 0, -128), (6, 10, 256))
+    assert mask[2:4].all()  # middle layers full
+    assert mask[0, 2:8, :].all()  # only the top and bottom rows are bevelled at x = 0
+    assert not mask[0, 0:2, :].any()

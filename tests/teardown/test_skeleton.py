@@ -34,7 +34,9 @@ def calibration_assembly() -> Assembly:
         obj = PlacedObject(w.object_name, _solid((width, d, d)), origin)
         wheels.append(Wheel(w.name, obj, (float(cx), float(cy), float(cz)), w.steer, w.drive))
     anchors = {tag: (float(x), float(y), float(z)) for tag, (x, y, z) in cal.LOCATIONS.items()}
-    return Assembly("calibration", "vehicle", (body,), tuple(wheels), anchors, _palette(), {})
+    return Assembly(
+        "calibration", "vehicle", (body,), tuple(wheels), anchors, _palette(), {}, "basic"
+    )
 
 
 def _find(element: ET.Element, path: str) -> ET.Element:
@@ -166,6 +168,74 @@ def test_prop_skeleton_is_one_dynamic_body() -> None:
     ]
 
 
+def test_seats_and_lights() -> None:
+    car = calibration_assembly()
+    anchors = {
+        **car.anchors,
+        "driver_seat": (-4.0, 6.0, 1.0),
+        "passenger_seat_2": (4.0, 6.0, 9.0),
+        "passenger_seat": (4.0, 6.0, 1.0),
+        "headlight_l": (-6.0, 7.0, -21.0),
+        "taillight_r": (6.0, 7.0, 21.0),
+        "hinge_door": (0.0, 5.0, 0.0),
+    }
+    seated = Assembly(car.name, car.kind, car.body, car.wheels, anchors, car.palette, {})
+    root = ET.fromstring(skeleton_xml(seated, "calibration"))
+    body = _find(root, "./group/vehicle/body")
+    vox = _find(body, "vox")
+    px, py, pz = car.body[0].vox_pos
+    # Lights are children of the first body vox, relative to its pos point.
+    head, tail = vox.findall("light")
+    assert _floats(head.get("pos")) == tuple(float(meters(v)) for v in (-6 - px, 7 - py, -21 - pz))
+    assert head.get("type") == "cone"
+    assert head.get("rot") == "0 180 0"  # shines towards -Z, the front
+    assert tail.get("type") == "area"
+    assert tail.get("rot") is None
+    assert tail.get("color") == "1 .1 .1"
+    # Rigs come after the wheels, in the body, at the seat points.
+    tags = [child.tag for child in body]
+    assert tags == ["vox", "wheel", "wheel", "wheel", "wheel", "rig", "rig", "rig"]
+    driver, first, second = body.findall("rig")
+    assert driver.get("name") == "driver"
+    assert driver.get("tags") == "driver sort=0"
+    assert _floats(driver.get("pos")) == (-0.4, 0.6, 0.1)
+    names = [loc.get("name") for loc in driver.findall("location")]
+    assert names == [
+        "seat",
+        "ik_head",
+        "ik_hand_l",
+        "ik_hand_r",
+        "ik_foot_l",
+        "ik_foot_r",
+        "steeringwheel",
+    ]
+    for loc in driver.findall("location"):
+        assert loc.get("tags") == loc.get("name")
+    seat = _find(driver, "location[@name='seat']")
+    assert _floats(seat.get("pos")) == (0.0, 0.0, 0.0)
+    assert seat.get("rot") == "80 0 0"
+    assert _floats(_find(driver, "location[@name='ik_head']").get("pos")) == (0.0, 0.55, 0.3)
+    assert first.get("tags") == "sort=1"
+    assert _floats(first.get("pos")) == (0.4, 0.6, 0.1)
+    assert second.get("tags") == "sort=2"
+    assert _floats(second.get("pos")) == (0.4, 0.6, 0.9)
+    assert [loc.get("name") for loc in second.findall("location")] == [
+        "seat",
+        "ik_head",
+        "ik_foot_l",
+        "ik_foot_r",
+    ]
+    assert "hinge" not in skeleton_xml(seated, "calibration")
+
+
+def test_prop_skeleton_ignores_seats_and_lights() -> None:
+    crate = PlacedObject("crate", _solid((4, 4, 4)), (-2, 0, -2))
+    anchors = {"driver_seat": (0.0, 5.0, 0.0), "headlight": (0.0, 2.0, -2.0)}
+    text = skeleton_xml(Assembly("crate", "prop", (crate,), (), anchors, _palette(), {}), "crate")
+    assert "rig" not in text
+    assert "light" not in text
+
+
 @pytest.mark.parametrize(
     ("vox", "text"),
     [(0, "0"), (-12, "-1.2"), (5.5, "0.55"), (-0.5, "-0.05"), (-0.0, "0"), (100, "10")],
@@ -176,3 +246,16 @@ def test_meters(vox: float, text: str) -> None:
 
 def test_xml_vec() -> None:
     assert xml_vec((-9.5, 4, 0)) == "-0.95 0.4 0"
+
+
+def test_handling_presets_set_the_vehicle_attributes() -> None:
+    car = calibration_assembly()
+    for preset, speed in (("car", "90"), ("sports", "120"), ("truck", "70")):
+        tuned = Assembly(
+            car.name, car.kind, car.body, car.wheels, car.anchors, car.palette, {}, preset
+        )
+        vehicle = _find(ET.fromstring(skeleton_xml(tuned, "x")), "./group/vehicle")
+        assert vehicle.get("topspeed") == speed
+        assert vehicle.get("sound") is not None
+    basic = _find(ET.fromstring(skeleton_xml(car, "x")), "./group/vehicle")
+    assert basic.attrib == {"spring": "0.5", "damping": "0.7", "topspeed": "60"}

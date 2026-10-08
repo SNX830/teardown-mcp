@@ -42,7 +42,7 @@ async def test_stdio_server_speaks_only_the_protocol_on_stdout(tmp_path: Path) -
     )
     async with Client(server) as client:
         tools = await client.list_tools()
-        assert len(tools.tools) == 25
+        assert len(tools.tools) == 28
         result = await client.call_tool("create_project", {"project": "car"})
         assert not result.is_error
     assert (workspace / "projects" / "car" / "project.json").is_file()

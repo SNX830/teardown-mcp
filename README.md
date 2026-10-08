@@ -32,10 +32,13 @@ which writes `/path/to/your/folder/.mcp.json`. Start Claude Code in that folder,
 exported mods to `workspace/mods/<Mod Name>/`; copy a mod folder into
 `Documents\Teardown\mods\` to test it. Buildup never writes into the game's folders.
 
-Tools: projects (`create_project`, `list_projects`, `project_summary`, `undo`), colors and parts
-(`define_color`, `add_part`, `remove_part`), drawing (`draw_box`, `draw_cylinder`,
-`draw_ellipsoid`, `draw_wedge`, `cut_edges`), operations (`mirror_part`, `hollow_part`,
-`move_part`, `add_wheels`, `set_anchor`), inspection (`preview` image, `inspect`,
+Tools: projects (`create_project`, `list_projects`, `project_summary`, `undo`), vehicle
+templates to customize (`start_from_template`: sedan, SUV, pickup, van, truck), colors and parts
+(`define_color`, `add_part`, `remove_part`), drawing (`draw_profile` for silhouettes, `draw_box`,
+`draw_cylinder`, `draw_ellipsoid`, `draw_wedge`, `cut_edges`), operations (`mirror_part`,
+`hollow_part`, `move_part`, `add_wheels`, `set_anchor` for seats, lights and locations,
+`set_handling` for driving presets),
+inspection (`preview` image with see-through glass, `inspect`,
 `slice_layers`), `export_model` (`.vox`, manifest, XML prefab skeleton),
 `teardown_reference`, and coherence tools that read the user's game files without changing
 them: `validate_mod` (checks a mod folder), `read_game_log` (the game's errors for a mod) and

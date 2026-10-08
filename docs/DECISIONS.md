@@ -245,3 +245,66 @@ Milestone 0.5.0 adds `validate_mod`, `read_game_log` and `lookup_api` (`buildup.
   scanning a mod folder; `path` must be absolute.
 - **Linux.** Steam under `~/.steam/steam` and `~/.local/share/Steam` is searched; the log of a
   Proton install is not located automatically: set `TEARDOWN_LOG`.
+
+## D-028 — Modelling quality: profiles, seats and lights, templates, see-through previews
+Milestone 0.6.0.
+- **Profiles** (`buildup.voxcore.profile`, tool `draw_profile`): a silhouette in one of three
+  planes (`side`: points `[z, y]`, extruded across X; `front`: `[x, y]` along Z; `top`:
+  `[x, z]` along Y), given as a polygon (cell centers inside, even-odd rule, so whole-number
+  corners cover the same cells as a box) or as an ASCII drawing (top row first, `origin` =
+  bottom-left character, whitespace and dots empty). Drawings read like a preview: `side` like
+  the left view, `top` like the top view (front at the top), `front` like the back view (+X to
+  the right; keeping +X to the right in every drawing was preferred to mirroring it). A
+  `round` bevel of 1 is refused (it removes nothing), and so is a bevel of half the span or
+  more (it would leave no full-width layer). A bevel shrinks the section near both ends of the
+  extrusion: `chamfer` is the same stair as `voxcore.chamfer`, `round` a quarter circle (cells
+  whose center is inside). Inner distances alternate side and diagonal steps (octagons, close
+  to circles, without scipy). Sections are computed over model space plus a margin, so a huge
+  polygon stays cheap and keeps its bevel.
+- **Anchor roles** (`buildup.teardown.anchors`): anchors stay free names; the name decides the
+  role. `player`/`vital`/`exhaust` are locations (as before), `driver_seat` and
+  `passenger_seat[_n]` become `rig` elements, `headlight*`/`taillight*` become `light`
+  elements, other names (`hinge_*` included) go to the manifest only. Manifest anchors gain
+  `role`, `skeleton` and `meaning` (compatible additions: `manifest_version` stays 1).
+- **Rigs** follow official cars (reference §5): the rig sits in the body at the seat point
+  with its `seat` location at `0 0 0` (official rigs show the rig pos is only a frame origin),
+  and its locations are the median offsets and rotations of the five official cars with a
+  reclined seat, rounded to half a voxel (head 0.57 m -> 0.55 m). The export checks the seat and head points against the body voxels, the
+  floor under the feet, and the `player` location against the official range, because the
+  0.4.0 acceptance car showed the driver hanging below the car without a rig. Not verified in
+  game until protocol G.
+- **Lights** follow official cars (reference §6): children of the first body vox, typical
+  official attributes, headlights turned `0 180 0` (official lights shine towards +Z). Not
+  verified in game until protocol G.
+- **Templates** (`buildup.project.templates`, tool `start_from_template`): sedan, SUV,
+  pickup, van and truck, Buildup's own designs (rule 1: no shape copied), sized after the
+  official vehicles of the same kind (reference §6), built with the project operations into
+  one `body` part (shell from a side profile with round sides, carved cabin and cargo, glass
+  windows, seats, dashboard and steering wheel, emissive lamps, lined wheel arches) plus
+  wheels and every anchor. They start from an empty vehicle project and can be stretched by
+  up to 20 % in length and width (heights never scale; axles keep a wheel and a voxel apart).
+  Seats stay inside the wheel wells' walls, and seat rows leave the rear passengers' feet
+  clear of the front seats. Every template, at every allowed length (with the narrowest,
+  default and widest widths) and every allowed width, exports without any warning, in one
+  face-connected piece, without feet inside a seat, and passes `validate_mod` (tests).
+- **See-through previews**: indices of glass material with the glass finish (the combination
+  verified see-through in game) are drawn translucent: tinted layers over what lies behind in
+  orthographic views (one layer per run of glass voxels, opacity 0.35), translucent faces in
+  3/4 views (glass faces only against empty space). Outlines follow the first voxel of any
+  kind, so windows keep their outline. Other finishes stay opaque in previews.
+- **Handling presets** (`buildup.teardown.handling`, tool `set_handling`), added after
+  protocol G (2026-10-08) showed every Buildup vehicle sitting low, steering badly and
+  reaching the same speed with the calibration car's three parameters. A preset is the full
+  `vehicle` parameter set of one official vehicle of that kind (reference §6): `car` (saloon
+  car), `sports` (Crownzygot), `offroad` (Taskmaster pickup), `van` (van), `truck` (semi
+  truck), plus `basic` (the calibration car, verified with a Buildup model). One official
+  set per kind, not medians: every combination is then one the game's own vehicles drive
+  with. The project stores its preset (`project.json` key `handling`, absent in older files
+  = `car`, the new default); templates pick the preset of their kind; the manifest reports
+  it. The `sound` names are the official built-in engine sounds of those vehicles.
+- **Template ground clearance**: every template's heights are raised by one voxel (`lift`),
+  giving 0.2 m (sedan) to 0.4 m (pickup, truck) under the body, inside the official range
+  (reference §6). The truck's engine bay and chassis are hollowed (by voxel count it had
+  16 578 voxels against 4 876 for the official dump truck's body; it now fills 0.32 of its
+  box, like official cars). Wheel-arch rings are drawn in the body color: the black
+  trim ring looked odd in game ("garde-boue bizarres"); the inner wall stays trim.

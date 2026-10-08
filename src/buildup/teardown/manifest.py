@@ -9,7 +9,9 @@ from typing import Any, Final
 import numpy as np
 
 from buildup.palette import MATERIAL_INDICES
+from buildup.teardown.anchors import anchor_role
 from buildup.teardown.assembly import VEHICLE_LOCATIONS, Assembly, PlacedObject
+from buildup.teardown.handling import handling
 from buildup.teardown.skeleton import meters, vox_file_path
 
 MANIFEST_VERSION: Final = 1
@@ -53,7 +55,9 @@ def build_manifest(assembly: Assembly, generator: str) -> dict[str, Any]:
 
     Returns:
         A JSON-ready dictionary: frame, ``.vox`` path, objects with sizes and XML positions,
-        wheels with axle positions, anchors, palette.
+        wheels with axle positions, anchors (with their role and what the skeleton writes for
+        them: ``location``, ``driver_rig``, ``passenger_rig``, ``headlight``, ``taillight`` or
+        ``manifest``), palette.
     """
     objects = [_object_entry(obj, "body", assembly) for obj in assembly.body]
     objects += [_object_entry(w.obj, "wheel", assembly) for w in assembly.wheels]
@@ -79,6 +83,9 @@ def build_manifest(assembly: Assembly, generator: str) -> dict[str, Any]:
             "location_tag": (
                 name if assembly.kind == "vehicle" and name in VEHICLE_LOCATIONS else None
             ),
+            "role": anchor_role(name).role,
+            "skeleton": anchor_role(name).xml if assembly.kind == "vehicle" else "manifest",
+            "meaning": anchor_role(name).meaning,
         }
         for name, point in assembly.anchors.items()
     ]
@@ -97,6 +104,11 @@ def build_manifest(assembly: Assembly, generator: str) -> dict[str, Any]:
         "generator": generator,
         "name": assembly.name,
         "kind": assembly.kind,
+        "handling": (
+            {"preset": assembly.handling, "attributes": handling(assembly.handling).attributes}
+            if assembly.kind == "vehicle"
+            else None
+        ),
         "frame": FRAME,
         "vox_file": vox_file_path(assembly.name),
         "objects": objects,

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from buildup.voxcore import Axis, Face, Mask, Vec3, VoxcoreError
+from buildup.voxcore import profile as vp
 from buildup.voxcore import shapes as vs
 from buildup.voxcore.grid import as_float3, as_int, as_number, as_pair, as_vec3, axis_number
 
@@ -36,6 +37,7 @@ _FACE_NAMES: Final[dict[str, Face]] = {
     "back": "back",
 }
 _AXIS_NAMES: Final[dict[str, Axis]] = {"x": "x", "y": "y", "z": "z"}
+_PLANE_NAMES: Final[dict[str, vp.Plane]] = {"side": "side", "front": "front", "top": "top"}
 
 
 @dataclass(frozen=True)
@@ -173,3 +175,118 @@ def clip_to_world(start: Vec3, end: Vec3) -> tuple[Vec3, Vec3] | None:
 def inside_world(points: Sequence[float]) -> bool:
     """Whether a point (continuous coordinates) is inside model space."""
     return all(WORLD_MIN <= p <= WORLD_MAX for p in points)
+
+
+#: Most points of a polygon, rows of a drawing and characters per row.
+MAX_PROFILE_POINTS: Final = 256
+MAX_DRAWING: Final = 256
+
+
+def _profile_points(points: object) -> list[tuple[float, float]]:
+    if not isinstance(points, tuple | list) or not points:
+        raise VoxcoreError("points must be a list of [h, v] pairs")
+    if len(points) < vp.MIN_POLYGON_POINTS:
+        raise VoxcoreError(f"a polygon needs at least 3 points, got {len(points)}")
+    if len(points) > MAX_PROFILE_POINTS:
+        raise VoxcoreError(f"a profile has at most {MAX_PROFILE_POINTS} points, got {len(points)}")
+    pairs = []
+    for point in points:
+        h, v = as_pair(point, "each point")
+        pairs.append((as_number(h, "point coordinate"), as_number(v, "point coordinate")))
+    _limited([c for pair in pairs for c in pair], "profile points")
+    return pairs
+
+
+def _drawing_rows(rows: object) -> list[str]:
+    if (
+        not isinstance(rows, tuple | list)
+        or not rows
+        or not all(isinstance(row, str) for row in rows)
+    ):
+        raise VoxcoreError("rows must be a list of strings, the top row first")
+    if len(rows) > MAX_DRAWING or any(len(row) > MAX_DRAWING for row in rows):
+        raise VoxcoreError(f"a drawing has at most {MAX_DRAWING} rows of {MAX_DRAWING} characters")
+    return [str(row) for row in rows]
+
+
+def _profile_shape(
+    plane: vp.Plane, section: vp.Section, start_hv: tuple[int, int], span: object, bevel: vp.Bevel
+) -> Shape:
+    h_axis, v_axis, e_axis = vp.plane_axes(plane)
+    s0, s1 = as_pair(span, "span")
+    lo, hi = as_int(s0, "span start"), as_int(s1, "span end")
+    _limited((lo, hi), "span")
+    profile = vp.Profile(plane, section, start_hv, (lo, hi), bevel)
+    start = [0, 0, 0]
+    end = [0, 0, 0]
+    start[h_axis], end[h_axis] = start_hv[0], start_hv[0] + section.shape[0]
+    start[v_axis], end[v_axis] = start_hv[1], start_hv[1] + section.shape[1]
+    start[e_axis], end[e_axis] = lo, hi
+    s = (start[0], start[1], start[2])
+    e = (end[0], end[1], end[2])
+    return Shape(s, e, lambda w, size: vp.extrude(size, profile, w))
+
+
+def _plane(plane: object) -> vp.Plane:
+    if not isinstance(plane, str) or plane not in _PLANE_NAMES:
+        raise VoxcoreError(f"plane must be one of {', '.join(_PLANE_NAMES)}, got {plane!r}")
+    return _PLANE_NAMES[plane]
+
+
+def polygon_profile(plane: object, points: object, span: object, bevel: vp.Bevel) -> Shape:
+    """A polygon silhouette extruded across the model (see ``buildup.voxcore.profile``).
+
+    Args:
+        plane: ``side`` (points ``[z, y]``, extruded along X), ``front`` (``[x, y]``, along Z)
+            or ``top`` (``[x, z]``, along Y).
+        points: Polygon corners in voxels (continuous coordinates), at least 3.
+        span: First cell and the cell after the last one along the extrusion axis.
+        bevel: Bevel of the edges at both ends of the extrusion.
+
+    Raises:
+        VoxcoreError: Bad plane, points or span; a polygon that covers no cell.
+    """
+    name = _plane(plane)
+    corners = _profile_points(points)
+    # The section is computed over model space plus a margin, so bevels at the limits stay right.
+    low, high = WORLD_MIN - vp.MAX_BEVEL - 1, WORLD_MAX + vp.MAX_BEVEL + 1
+    h_lo = max(low, math.floor(min(c[0] for c in corners)))
+    h_hi = min(high, math.ceil(max(c[0] for c in corners)))
+    v_lo = max(low, math.floor(min(c[1] for c in corners)))
+    v_hi = min(high, math.ceil(max(c[1] for c in corners)))
+    if h_lo >= h_hi or v_lo >= v_hi:
+        raise VoxcoreError("the polygon is flat or outside model space: it covers no cell")
+    section = vp.polygon_section(corners, (h_lo, v_lo), (h_hi - h_lo, v_hi - v_lo))
+    if not section.any():
+        raise VoxcoreError("the polygon covers no cell center: make it at least 1 voxel wide")
+    return _profile_shape(name, section, (h_lo, v_lo), span, bevel)
+
+
+def drawn_profile(
+    plane: object, rows: object, origin: object, span: object, bevel: vp.Bevel
+) -> Shape:
+    """An ASCII silhouette extruded across the model (see ``buildup.voxcore.profile``).
+
+    Args:
+        plane: ``side`` (characters along +Z, the front on the left as in the left view;
+            rows from the top down), ``front`` (characters along +X, as seen from the back) or
+            ``top`` (seen from above with the front at the top: characters along +X, rows
+            towards +Z).
+        rows: The drawing, top row first; spaces and dots are empty, other characters filled.
+        origin: Model cell ``[h, v]`` of the bottom-left character (first character of the
+            last row), in the plane's coordinates (``side``: ``[z, y]``).
+        span: First cell and the cell after the last one along the extrusion axis.
+        bevel: Bevel of the edges at both ends of the extrusion.
+
+    Raises:
+        VoxcoreError: Bad plane, drawing, origin or span.
+    """
+    name = _plane(plane)
+    section = vp.ascii_section(_drawing_rows(rows))
+    o0, o1 = as_pair(origin, "origin")
+    h_lo, v_lo = as_int(o0, "origin"), as_int(o1, "origin")
+    _limited((h_lo, v_lo), "origin")
+    if name == "top":  # the drawing's up is -Z: its last row is the rearmost
+        section = section[:, ::-1].copy()
+        v_lo -= section.shape[1] - 1
+    return _profile_shape(name, section, (h_lo, v_lo), span, bevel)

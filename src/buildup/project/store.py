@@ -27,6 +27,7 @@ from buildup.palette import Finish, FinishKind, Material
 from buildup.project.model import Color, Part, Project, WheelInfo
 from buildup.project.names import ProjectError, check_project_name
 from buildup.teardown import KINDS
+from buildup.teardown.handling import DEFAULT_HANDLING, HANDLING
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,7 @@ def project_to_json(project: Project) -> dict[str, Any]:
         "name": project.name,
         "kind": project.kind,
         "description": project.description,
+        "handling": project.handling,
         "colors": [
             {
                 "name": c.name,
@@ -117,6 +119,10 @@ def project_from_json(data: Any, grids: dict[str, np.ndarray]) -> Project:
         if kind not in KINDS:
             raise ProjectFileError(f"unknown project kind {kind!r}")
         project = Project(str(data["name"]), kind, str(data["description"]))
+        preset = data.get("handling", DEFAULT_HANDLING)  # absent before 0.6.0
+        if preset not in HANDLING:
+            raise ProjectFileError(f"unknown handling preset {preset!r}")
+        project.handling = str(preset)
         for c in data["colors"]:
             f = c["finish"]
             finish = Finish(

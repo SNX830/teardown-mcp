@@ -183,12 +183,48 @@ Calibration results (2026-10-06, protocol C of `docs/TESTING_IN_GAME.md`, screen
 - `GAME` 2026-10-07: without driver `rig`, with the `player` location 0.9 m above the cabin floor
   (1.2 m above the ground), the driver's view is at about that height and the driver's body is
   shown hanging below it: its feet stick out under the car.
-- `FILES` Every official land vehicle of `mods/assetpack/assets/vehicles/land` has `rig` elements
-  (children of `body`): a `rig` tagged `driver` and passenger rigs, each with `location`s tagged
-  `seat`, `ik_head`, `ik_hand_l`, `ik_hand_r`, `ik_foot_l`, `ik_foot_r` (and `steeringwheel`
-  for the driver), positioned relative to the rig `pos`. In the saloon car the `player`
-  location is about 0.1 m above the driver rig's `ik_head`. `DEDUCED`: `player` is the driver's
-  view point and the rig gives the seated pose; unverified until a rig is tested in game.
+- `FILES` Every official land vehicle of `mods/assetpack/assets/vehicles/land` (12 prefabs,
+  survey 2026-10-08) has `rig` elements: a `rig` named `driver` tagged `driver` (cars:
+  `driver sort=0`) and passenger rigs named `passenger` tagged `sort=1`, `sort=2`...; each holds
+  `location`s named and tagged `seat`, `ik_head`, `ik_hand_l`, `ik_hand_r`, `ik_foot_l`,
+  `ik_foot_r`, and `steeringwheel` for the driver (some rigs omit the head, hands or feet).
+  Location positions are relative to the rig `pos`. Rigs are children of the `body` in the cars
+  (saloon, station wagon, SUV, Crownzygot, Castanet, Taskmaster) and children of the `vehicle`
+  in the trucks and machines (van, dump truck, semi truck, tractor, crane, excavator), where
+  the rig often has no `pos` and its locations hold vehicle-frame positions. The rig `pos` is
+  therefore only a frame origin. `DEDUCED`: a rig in the body at the seat point with its `seat`
+  location at `0 0 0` is equivalent. In the saloon car the `player` location is about 0.1 m
+  above the driver rig's `ik_head`. `DEDUCED`: `player` is the driver's view point and the rig
+  gives the seated pose; unverified until a rig is tested in game.
+- `GAME` 2026-10-08 (protocol G, five vehicles built by a Sonnet 5.5 session from Buildup
+  templates and from scratch): with Buildup's driver rig (rig at the `driver_seat` point,
+  `seat` at `0 0 0`, median car offsets) and `player` 0.6 m above and 0.3 m behind the seat,
+  the driver sits inside the vehicle and the view from the driver's place is at a plausible
+  height, on cars, a pickup, a race car and a fire truck. (Nathan also noted that in an
+  official car the driver's head sticks out of the roof.)
+- `GAME` 2026-10-08 (protocol G): with Buildup's skeleton parameters (`spring 0.5`,
+  `damping 0.7`, `topspeed 60` on every vehicle) the vehicles sat very close to the ground
+  (bumpers and underbody nearly touching it), steered with difficulty, and all reached the
+  same speed, slower when heavier; the official cars drive better. A car built with a 0.2 m
+  underbody looked right.
+- `GAME` 2026-10-08 (protocol G2, a sedan from the template and a race car, both 0.2 m above
+  the ground): with the `car` preset (saloon car values) and the `sports` preset (Crownzygot
+  values) the vehicles sit at a realistic height and steer normally; the game's speedometer
+  shows about 90 km/h for `car` and 120 km/h for `sports`, as the official race car (120).
+  `topspeed` therefore reads as the top speed in km/h (consistent with both presets).
+- `FILES` Driver rig geometry of the five cars with a reclined seat (saloon, station wagon,
+  Crownzygot, Taskmaster, Castanet; survey 2026-10-08), relative to the `seat` location, in
+  meters (x right, y up, z back), median and range: `ik_head` (0, 0.57, 0.3) [y 0.48-0.65, z
+  0.2-0.3]; `ik_hand_l`/`ik_hand_r` (-0.25 / +0.25, 0.15, -0.2) [x 0.15-0.3, y 0.15-0.35, z
+  -0.15 to -0.25]; `ik_foot_l`/`ik_foot_r` (-0.15 / +0.15, -0.15, -0.6) [y -0.05 to -0.25, z
+  -0.55 to -0.7]; `steeringwheel` (0, 0.15, -0.15) [y 0.15-0.35, z -0.1 to -0.2]; the `player`
+  location (0, 0.6, 0.3) [y 0.5-0.7, z 0.1-0.35] (over all 10 driver rigs with a seat: y
+  0.5-0.9, z -0.3 to 0.35). Location rotations in those cars: `seat` `rot="70 0 0"` or
+  `"80 0 0"` (three of five), heads and hands `"0 90 0"`, feet `"0 90 50"` (Taskmaster
+  `"0 90 70"`), `steeringwheel` `"0 -180 0"`; trucks and machines use an upright `seat`
+  (`rot="0 0 0"`). Passenger rigs hold the same `seat`, `ik_head` and feet offsets. Against the
+  car body voxels, the seat point is 0 to 0.3 m above the solid voxels under it and the head
+  point 0.15 to 0.25 m below the roof.
 - `FILES` (historical hint, now explained by the origin rule) The saloon car body is 21 voxels wide
   and its vox has `pos` x `0.05` with `rot="0 180 0"`: with the floor origin and the 180° turn the
   0.05 centers the body between its wheels.
@@ -201,6 +237,21 @@ Calibration results (2026-10-06, protocol C of `docs/TESTING_IN_GAME.md`, screen
 - `FILES` (`data/script_defs.lua`) vehicle params: spring, damping, topspeed, acceleration, strength,
   antispin, antiroll, difflock, steerassist, friction (+ smokeintensity, brokenthreshold);
   wheel: drive, steer, travel; joint types: ball, hinge, prismatic, rope.
+- `FILES` Vehicle lights (survey of 10 official land vehicles, 2026-10-08; the semi truck and
+  the excavator were not read) are `light` children of the body `vox`, positioned like
+  locations (relative to the vox), about 0.1 m inside the lamp's outer surface (crane: front
+  lights are area lights). Headlights: `type="cone"`, typically `color="1 .9 .8"
+  scale="20" angle="90" penumbra="30" size="0.1" unshadowed="0.2" glare="0.3"` (scale 10-50,
+  angle 50-120, penumbra 15-40). Rear lights: `type="area"`, red `color="1 .1 .1"`,
+  `size="0.2 0.1"` (0.1-0.3 by 0.1-0.2), `unshadowed` 0.2-0.3, `glare="0.2"`; white area lights
+  (no color or `"1 1 1"`) are also at the rear. Every headlight, combined with the rotation of
+  its vox, is turned 180 degrees about Y (it faces -Z, the front); every rear light has a total
+  rotation of 0 or 180 degrees about Z (it faces +Z, the back). `DEDUCED`: a light with no
+  rotation shines towards +Z, so in a body vox without `rot` a headlight needs `rot="0 180 0"`
+  and a rear light none. `GAME` 2026-10-08 (protocol G): Buildup's headlights (cone,
+  `rot="0 180 0"`, in a body vox without rotation) light the ground in front of the vehicle
+  and its rear lights (red area lights, no rotation) light at the back; glass windows and
+  emissive glass lamps break when shot.
 - `FILES` Location tags on vehicles: `player`, `vital`, `exhaust`. Survey of the official vehicles
   in `mods/assetpack` and `mods/vehiclepack` (2026-10-07): every one has `player`; cars,
   trucks and SUVs also have `vital` and `exhaust`; boats, excavators, cranes and some forklifts
@@ -218,6 +269,31 @@ Calibration results (2026-10-06, protocol C of `docs/TESTING_IN_GAME.md`, screen
   `spawn.txt`, `main.xml` or `main.lua`: through `gamemodes.txt` (`mpclassics`) or data files
   only (`bananabomb`). Some official level vehicles are built from
   `instance` elements (`cratertown` skytram) instead of a `body` written in place.
+- `FILES` Body sizes of the official land vehicles (body object, width x height x length in
+  meters, wheel diameter; survey 2026-10-08): saloon car 2.1 x 1.3 x 4.4, wheels 0.6; station
+  wagon 2.3 x 1.3 x 4.7, 0.6; SUV 2.3 x 1.6 x 4.9, 0.7; Crownzygot 2.3 x 1.3 x 5.2, 0.7;
+  Castanet 2.4 x 1.3 x 5.7, 0.6; Taskmaster pickup 2.5 x 1.6 x 5.3, 0.9; van 2.7 x 2.3 x 5.5,
+  0.7; dump truck 2.5 x 2.1 x 6.0, 1.1; semi truck 2.3 x 2.9 x 8.9; tractor 1.7 x 2.4 x 3.8,
+  0.9 front and 1.5 rear. Wheelbases (front to rear axle): saloon 2.6 m, SUV 2.9 m, pickup
+  3.2 m, van 3.4 m.
+- `FILES` Ground clearance and fill of official land vehicles (survey of `assetpack` and
+  `vehiclepack`, 2026-10-08; lowest body voxel above the bottom of the wheels, at rest in the
+  XML): saloon car 0.1 m, station wagon, SUV, Crownzygot 0.2 m, muscle car, van, Taskmaster
+  pickup 0.3 m, dump truck 0.4 m, off-road SUVs 0.4-0.6 m, tractor 0.6 m, monster truck 0.7 m.
+  Body objects fill 0.3-0.4 of their bounding box for cars and vans (4 400 to 11 500 voxels),
+  0.13-0.24 for trucks and machines.
+- `FILES` Vehicle parameters of official vehicles by kind (`vehicle` attributes): saloon car
+  `sound="small1 0.8" spring="1.0" damping="1.5" topspeed="90" acceleration="6" strength="4"
+  antiroll="0.2" difflock="0.2" steerassist="0.4" friction="1.8"`; Crownzygot (sports)
+  `sound="racingcar" spring="1.2" topspeed="120" acceleration="8" strength="8" antispin="0"
+  antiroll="0.2" difflock=".1" steerassist="0.4" friction="1.9"`; Taskmaster pickup
+  `sound="pickup" spring="0.6" damping="0.8" topspeed="75" acceleration="5" strength="5"
+  antispin="0" antiroll="0.4" steerassist="0.5"`; van `sound="van" spring="0.5"
+  damping="0.7" topspeed="70" acceleration="4" strength="2" antispin="1" antiroll="0.25"
+  steerassist="0.0"`; semi truck `sound="semitruck" spring="0.5" damping="0.5" topspeed="70"
+  acceleration="5" strength="5" antispin="1" antiroll="0.6" difflock="0.5"
+  steerassist="0.2"`; dump truck `topspeed="25"`, cranes and forklifts 10-15. `sound` names a
+  built-in engine sound. Effect of each attribute: not documented (names only, §6 above).
 - `FILES` Observed ranges over 135 official vehicle prefabs: 1 body in 99/143 vehicles; 4 wheels most
   common; topspeed 3–120 (typ. 60–90); spring 0.2–25 (typ. 0.5); damping 0.4–25 (typ. 0.7);
   wheel travel typically `-0.1 0.1`.
@@ -311,3 +387,6 @@ Calibration results (2026-10-06, protocol C of `docs/TESTING_IN_GAME.md`, screen
 - What `teardown_modtest.exe` (in the install folder) does; could it load a mod from the command line?
 - Whether the engine reads wheel `name` values (Buildup writes `fl`, `fr`, `bl`, `br` like official
   files, and `ml`/`mr`, `m1l`... for middle axles).
+- Passenger rigs: does a passenger sit in a `passenger_seat` rig? (protocol G tested the driver)
+- Handling presets `offroad`, `van` and `truck` on Buildup models (G2 tested `car` and
+  `sports`).

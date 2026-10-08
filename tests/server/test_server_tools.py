@@ -5,7 +5,7 @@ import io
 import json
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 from mcp import Client
@@ -13,7 +13,10 @@ from mcp.types import CallToolResult, Tool, ToolAnnotations
 from PIL import Image
 
 import buildup.project.store as store_module
+from buildup.project.templates import DESIGNS
 from buildup.server import INSTRUCTIONS, create_server
+from buildup.server.app import HandlingName, TemplateName
+from buildup.teardown.handling import HANDLING
 from buildup.teardown.install import GamePaths
 
 EXPECTED_TOOLS = {
@@ -27,7 +30,10 @@ EXPECTED_TOOLS = {
     "draw_box",
     "draw_cylinder",
     "draw_ellipsoid",
+    "draw_profile",
     "draw_wedge",
+    "start_from_template",
+    "set_handling",
     "cut_edges",
     "mirror_part",
     "hollow_part",
@@ -165,7 +171,9 @@ async def test_build_and_export_a_car(client: Client, tmp_path: Path) -> None:
     exported = await ok(client, "export_model", project="car")
     mod = tmp_path / "ws" / "mods" / "Car"
     assert f"into the mod folder {mod}" in exported
-    assert "Warnings: none." in exported
+    # The test car has no cabin: only the missing driver seat is reported.
+    assert "no driver_seat anchor" in exported
+    assert exported.count("\n  - ") == 1
     assert '<wheel name="fl" pos="-0.9 0.4 -1.3"' in exported
     assert (mod / "vox" / "car.vox").is_file()
     assert (mod / "prefab" / "car.xml").is_file()
@@ -420,3 +428,140 @@ async def test_errors_reach_the_ai(client: Client) -> None:
         inner_x=8,
         tire_color="wood",
     )
+
+
+@pytest.mark.anyio
+async def test_draw_profile(client: Client) -> None:
+    await build_car(client)
+    out = await ok(
+        client,
+        "draw_profile",
+        project="car",
+        part="body",
+        plane="side",
+        span=[-8, 8],
+        points=[[-20, 9], [20, 9], [12, 14], [-6, 14]],
+        bevel=2,
+        color="paint",
+    )
+    assert out.startswith("1")
+    assert "voxels changed" in out
+    out = await ok(
+        client,
+        "draw_profile",
+        project="car",
+        part="body",
+        plane="side",
+        span=[-7, 7],
+        rows=["####", "####"],
+        origin=[-5, 11],
+        color="window",
+        mode="paint",
+    )
+    assert out.startswith("112 voxels changed.")  # 4 x 2 cells across 14 layers
+    assert "rows" in await error(
+        client, "draw_profile", project="car", part="body", plane="side", span=[0, 1], color="paint"
+    )
+    assert "origin" in await error(
+        client,
+        "draw_profile",
+        project="car",
+        part="body",
+        plane="side",
+        span=[0, 1],
+        rows=["#"],
+        color="paint",
+    )
+    assert "bevel" in await error(
+        client,
+        "draw_profile",
+        project="car",
+        part="body",
+        plane="side",
+        span=[0, 1],
+        rows=["#"],
+        origin=[0, 0],
+        bevel=40,
+        color="paint",
+    )
+
+
+@pytest.mark.anyio
+async def test_start_from_template_and_seat_hints(client: Client) -> None:
+    await ok(client, "create_project", project="van", kind="vehicle")
+    built = await ok(client, "start_from_template", project="van", template="van", length_m=5.0)
+    assert built.startswith("Built template 'van'")
+    assert "Z -25..25" in built
+    exported = await ok(client, "export_model", project="van")
+    assert "Warnings: none." in exported
+    assert '<rig name="driver" tags="driver sort=0"' in exported
+    again = await error(client, "start_from_template", project="van", template="sedan")
+    assert "empty project" in again
+    await ok(client, "create_project", project="crate", kind="prop")
+    prop = await error(client, "start_from_template", project="crate", template="sedan")
+    assert "kind 'vehicle'" in prop
+
+    await ok(client, "create_project", project="kart", kind="vehicle")
+    out = await ok(client, "set_anchor", project="kart", name="driver_seat", position=[-4, 5, 0])
+    assert "driver's hip point" in out
+    assert "player is not set: official cars put it at (-4, 11, 3) vox" in out
+    out = await ok(client, "set_anchor", project="kart", name="headlight_l", position=[-6, 6, -20])
+    assert "cone light shining forward" in out
+    out = await ok(client, "set_anchor", project="kart", name="hinge_door", position=[0, 5, 0])
+    assert "manifest only" in out
+
+
+@pytest.mark.anyio
+async def test_draw_profile_refuses_bevels_that_draw_nothing(client: Client) -> None:
+    await build_car(client)
+    base = {"project": "car", "part": "body", "plane": "side", "color": "paint"}
+    square = [[0, 0], [4, 0], [4, 4], [0, 4]]
+    assert "removes nothing" in await error(
+        client, "draw_profile", **base, span=[0, 9], points=square, bevel=1, bevel_style="round"
+    )
+    assert "less than half the span" in await error(
+        client, "draw_profile", **base, span=[0, 4], points=square, bevel=2
+    )
+    assert "origin goes with rows" in await error(
+        client, "draw_profile", **base, span=[0, 4], points=square, origin=[0, 0]
+    )
+    await ok(client, "create_project", project="crate", kind="prop")
+    out = await ok(client, "set_anchor", project="crate", name="headlight", position=[0, 2, 0])
+    assert "vehicles only" in out
+
+
+@pytest.mark.anyio
+async def test_draw_profile_reports_an_empty_span_first(client: Client) -> None:
+    await build_car(client)
+    message = await error(
+        client,
+        "draw_profile",
+        project="car",
+        part="body",
+        plane="side",
+        span=[5, 2],
+        points=[[0, 0], [4, 0], [4, 4]],
+        bevel=2,
+        color="paint",
+    )
+    assert "span 5..2 is empty" in message
+
+
+@pytest.mark.anyio
+async def test_set_handling(client: Client) -> None:
+    await build_car(client)
+    assert "Handling: car" in await ok(client, "project_summary", project="car")
+    out = await ok(client, "set_handling", project="car", preset="sports")
+    assert "Crownzygot" in out
+    exported = await ok(client, "export_model", project="car")
+    assert 'topspeed="120"' in exported
+    await ok(client, "create_project", project="crate", kind="prop")
+    assert "only vehicle" in await error(client, "set_handling", project="crate", preset="car")
+    await ok(client, "create_project", project="van", kind="vehicle")
+    await ok(client, "start_from_template", project="van", template="van")
+    assert "Handling: van" in await ok(client, "project_summary", project="van")
+
+
+def test_tool_literals_match_the_core_names() -> None:
+    assert set(get_args(HandlingName)) == set(HANDLING)
+    assert set(get_args(TemplateName)) == set(DESIGNS)

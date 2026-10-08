@@ -65,14 +65,69 @@ def test_placed_object_rejects_empty_and_oversized() -> None:
         PlacedObject("x", np.ones((257, 1, 1), np.uint8), (0, 0, 0))
 
 
+def _cabin_car(palette: Palette, anchors: dict[str, tuple[float, float, float]]) -> Assembly:
+    """The test car with an open driver's cabin: x -7..0, y 5..9, z -8..6 carved."""
+    car = _car(palette, anchors)
+    grid = car.body[0].grid.copy()
+    grid[1:8, 2:6, 12:26] = 0
+    body = PlacedObject("body", grid, car.body[0].origin)
+    return Assembly(car.name, car.kind, (body,), car.wheels, anchors, car.palette, car.color_names)
+
+
+SEATED = {
+    **FULL_ANCHORS,
+    "player": (-4.0, 11.5, 3.0),
+    "driver_seat": (-4.0, 5.5, 0.0),
+}
+
+
 def test_complete_car_has_no_warnings(palette: Palette) -> None:
-    assert check_assembly(_car(palette, FULL_ANCHORS)) == []
+    assert check_assembly(_cabin_car(palette, SEATED)) == []
 
 
 def test_missing_locations_are_reported(palette: Palette) -> None:
-    warnings = check_assembly(_car(palette, {"player": (-4.0, 9.0, 2.0), "lamp": (0, 0, 0)}))
+    anchors = {"player": (-4.0, 11.5, 3.0), "driver_seat": (-4.0, 5.5, 0.0), "lamp": (0, 0, 0)}
+    warnings = check_assembly(_cabin_car(palette, anchors))
     assert len(warnings) == 1
     assert "missing vehicle anchors: vital, exhaust" in warnings[0]
+
+
+def test_missing_driver_seat_is_reported(palette: Palette) -> None:
+    (warning,) = check_assembly(_car(palette, FULL_ANCHORS))
+    assert warning.startswith("no driver_seat anchor")
+    assert "feet out under the car" in warning
+
+
+def test_player_is_suggested_from_the_seat(palette: Palette) -> None:
+    anchors = {k: v for k, v in SEATED.items() if k != "player"}
+    warnings = check_assembly(_cabin_car(palette, anchors))
+    assert any("official cars put player at [-4, 11.5, 3]" in w for w in warnings)
+    far = {**SEATED, "player": (-4.0, 20.0, 3.0)}
+    (warning,) = check_assembly(_cabin_car(palette, far))
+    assert "is far from where official cars put it" in warning
+    assert "[-4, 11.5, 3]" in warning
+
+
+def test_seat_inside_the_body_and_hanging_feet_are_reported(palette: Palette) -> None:
+    # In the solid car, a seat inside the body puts the seat and head in the voxels.
+    buried = {**FULL_ANCHORS, "player": (-4.0, 10.0, 3.0), "driver_seat": (-4.0, 4.0, 0.0)}
+    warnings = check_assembly(_car(palette, buried))
+    (inside,) = [w for w in warnings if "inside the body" in w]
+    assert "character's seat point ([-4, 4, 0])" in inside
+    # Above the roof, the feet have no floor under them only beyond the body's end.
+    floating = {
+        **FULL_ANCHORS,
+        "player": (-4.0, 16.0, 3.0),
+        "driver_seat": (-4.0, 10.0, -16.0),
+        "passenger_seat": (4.0, 5.5, 0.0),
+    }
+    warnings = check_assembly(_cabin_car(palette, floating))
+    hanging = [w for w in warnings if "no body voxel under the feet" in w]
+    assert len(hanging) == 1
+    assert hanging[0].startswith("driver_seat:")
+    assert "[-5.5, 8.5, -22], [-2.5, 8.5, -22]" in hanging[0]
+    # The passenger seat at x 4 is in the solid right half: inside the body.
+    assert any(w.startswith("passenger_seat: the character's seat point") for w in warnings)
 
 
 def test_overlaps_and_loose_pieces_are_reported(palette: Palette) -> None:
@@ -136,6 +191,8 @@ def test_manifest(palette: Palette) -> None:
     json.dumps(manifest)  # JSON-ready
     assert manifest["manifest_version"] == MANIFEST_VERSION == 1
     assert manifest["generator"] == "test 1.0"
+    assert manifest["handling"]["preset"] == "car"
+    assert manifest["handling"]["attributes"]["topspeed"] == "90"
     assert manifest["vox_file"] == "MOD/vox/car.vox"
     body = manifest["objects"][0]
     assert body == {
@@ -168,6 +225,11 @@ def test_manifest(palette: Palette) -> None:
     assert anchors["player"]["location_tag"] == "player"
     assert anchors["lamp"]["location_tag"] is None
     assert anchors["lamp"]["position_m"] == [0.3, 0.8, -2.0]
+    assert anchors["lamp"]["role"] == "custom"
+    assert anchors["lamp"]["skeleton"] == "manifest"
+    assert anchors["player"]["role"] == "player"
+    assert anchors["player"]["skeleton"] == "location"
+    assert "verified in game" in anchors["player"]["meaning"]
     assert manifest["palette"][0] == {
         "index": 1,
         "name": "glass",
@@ -183,8 +245,11 @@ def test_prop_anchors_are_not_locations(palette: Palette) -> None:
     crate = PlacedObject("crate", _solid((4, 4, 4), 121), (-2, 0, -2))
     prop = Assembly("crate", "prop", (crate,), (), {"player": (0, 5, 0)}, palette, {})
     assert check_assembly(prop) == []  # props need no vehicle locations
-    (anchor,) = build_manifest(prop, "test")["anchors"]
+    manifest = build_manifest(prop, "test")
+    (anchor,) = manifest["anchors"]
     assert anchor["location_tag"] is None
+    assert anchor["skeleton"] == "manifest"
+    assert manifest["handling"] is None
 
 
 def test_reference_topics() -> None:
@@ -200,3 +265,10 @@ def test_materials_reference_lists_every_material() -> None:
     for material in Material:
         assert material.value in text
     assert "weak metal    indices 121-136 (16 colors)" in text
+
+
+def test_unknown_handling_is_refused(palette: Palette) -> None:
+    car = _car(palette, FULL_ANCHORS)
+    odd = Assembly(car.name, car.kind, car.body, car.wheels, car.anchors, palette, {}, "rocket")
+    with pytest.raises(AssemblyError, match="handling preset 'rocket'"):
+        check_assembly(odd)

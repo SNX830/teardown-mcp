@@ -3,7 +3,8 @@
 Hand-off notes between sessions. Update at the end of every session (see `AGENTS.md` §4).
 
 - **Current version:** 0.5.0 (tag `v0.5.0`)
-- **Current milestone:** 0.6.0 — Modelling quality (not started)
+- **Current milestone:** 0.6.0 — Modelling quality (implemented on branch
+  `feat/modelling-quality`; protocol G done, G2 re-test pending)
 - **Last milestone:** 0.5.0 — Coherence tools (released 2026-10-07)
 - **Repository:** https://github.com/SNX830/teardown-mcp (public)
 
@@ -96,6 +97,28 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
   approved; its two small text remarks (the log tool does not take the `local-` id, a mod
   without spawn.txt is only a note) were fixed before the commit.
 
+- 2026-10-08 — Milestone 0.6.0 implemented on branch `feat/modelling-quality` (decision
+  D-028): see-through glass in previews, `draw_profile` (silhouettes extruded with chamfered
+  or rounded edges), anchor roles (`driver_seat`/`passenger_seat*` -> rigs, `headlight*`/
+  `taillight*` -> lights, manifest roles), seat checks at export, and `start_from_template`
+  (sedan, SUV, pickup, van, truck; 27 MCP tools). Read-only surveys of the official land
+  vehicles (rigs, lights, body sizes) recorded in reference §5-6. Verified: every template at
+  every allowed size exports without warnings in one piece, with no feet inside a seat, and
+  passes `validate_mod`; the agent looked at the previews of all five templates
+  (recognisable car, SUV, pickup, van and box truck, windows see-through onto the seats).
+  Independent review: changes required, all fixed: the truck put the driver's head in the
+  cab's back wall at three lengths (the tests now sweep every allowed size); tool and
+  changelog texts said "drivable" and "lit headlights" before any game test; the head offset
+  differed from the documented median (now documented as rounded to half a voxel); the SUV's
+  rear passengers' feet were in the front seats; tabs filled drawing cells; bevels that draw
+  nothing and an ignored `origin` are now refused; prop anchors no longer claim seats or lights.
+- 2026-10-08 — Protocol G run by Nathan (results in `docs/TESTING_IN_GAME.md` G): driver rig
+  and lights verified in game (reference §5-6 `GAME`); marks 2 to 3 for the four requests,
+  4 for a Porsche built from a photo. Fixes after it: handling presets from official vehicles
+  (`set_handling`, 28 MCP tools), templates raised to the official ground clearance, lighter
+  truck, body-colored wheel arches, the AI asked to request a reference picture (D-028).
+  Protocol G2 passed: realistic height, normal steering, 'car' 90 and 'sports' 120 km/h.
+
 ## Environment notes (Nathan's machine)
 
 - Windows 11, Python 3.13 (Microsoft Store build), uv and gh installed with winget. Terminals opened
@@ -104,8 +127,9 @@ Hand-off notes between sessions. Update at the end of every session (see `AGENTS
 
 ## Next steps
 
-1. Milestone 0.6.0 (modelling quality; includes the driver seat rig and see-through glass in
-   previews noted in the 0.4.0 acceptance test).
+1. Milestone 0.7.0 (multi-part models), when Nathan asks.
+2. Ideas from protocol G for later milestones: accessories at believable sizes (light bars),
+   building from reference pictures (worked best), passenger rigs (not yet tested).
 2. Note: uv runs the project locally with Python 3.14 (newest installed); CI tests 3.12, 3.13, 3.14.
 
 ## Open questions for Nathan
@@ -114,7 +138,16 @@ None blocking.
 
 ## Manual tests pending
 
-None. Last result: **0.5.0 protocol F passed with a finding** (2026-10-07). In a Claude Code
+None. Last result: **0.6.0 protocol G2 passed** (2026-10-08): sedan and race car at a
+realistic height, normal steering, about 90 and 120 km/h; shapes weaker when two vehicles are
+asked in one request.
+
+Previous result: **0.6.0 protocol G passed with findings** (2026-10-08): driver seated inside,
+plausible view, headlights in front, rear lights at the back, glass breaks; marks 2-3
+("recognisable"), 4 from a photo; vehicles too low, hard to steer, same speed (addressed,
+to verify in G2).
+
+Previous result: **0.5.0 protocol F passed with a finding** (2026-10-07). In a Claude Code
 session in `BuildupTest`, `validate_mod` reported the wrong wheel object (`wheel_zz`, listing the
 real objects) and nothing once fixed. In game the broken script showed on screen
 `[string "...ods/Petite Rouge/script/test.lua"]:4: attempt to call global

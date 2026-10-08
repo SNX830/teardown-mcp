@@ -6,6 +6,35 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 
 ## [Unreleased]
 
+### Added
+- MCP tool `start_from_template`: builds a complete vehicle to customize (sedan, SUV, pickup,
+  van, box truck), sized after the official vehicles: body with a cabin, glass windows, seats,
+  dashboard and steering wheel, glowing lamps, lined wheel arches, wheels and every anchor
+  (exports without warnings; seated driver and lights verified in game);
+  length and width adjustable by up to 20 %.
+- MCP tool `draw_profile`: a side, front or top silhouette (polygon or ASCII drawing)
+  extruded across the model, with chamfered or rounded edges.
+- Seats and lights in the XML skeleton: the anchors `driver_seat` and `passenger_seat*`
+  become seated character rigs (official car layout), `headlight*` and `taillight*` become
+  lights shining forward and red rear lights (driver and lights verified in game).
+- Export warnings for seats: no driver seat, the character's seat or head inside the body,
+  no floor under the feet, a player view point far from the official position.
+- The manifest gives every anchor its role and what the skeleton writes for it.
+- MCP tool `set_handling`: driving presets (`car`, `sports`, `offroad`, `van`, `truck`,
+  `basic`), each the speed, engine, suspension, steering assist and engine sound of an
+  official vehicle of that kind. Templates use the preset of their kind.
+
+### Changed
+- The skeleton's `vehicle` element now uses the project's handling preset (`car` by default)
+  instead of the calibration car's three parameters (with them, Buildup vehicles sat low,
+  steered badly and all reached the same speed in game; with `car` and `sports` they steer
+  normally and reach about 90 and 120 km/h).
+- Templates sit higher (0.2 to 0.4 m under the body, like official vehicles), the truck is
+  lighter, and wheel arches are lined in the body color.
+- The AI is asked to request a reference picture of the vehicle when possible.
+- Previews draw glass (glass material with the glass finish) see-through, as it is in game.
+- The reference texts and server instructions describe templates, profiles, seats and lights.
+
 ## [0.5.0] - 2026-10-07
 
 ### Added

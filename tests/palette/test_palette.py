@@ -87,3 +87,13 @@ def test_matl_of_used_and_unused_slots() -> None:
     index = palette.index_for(Material.HARD_METAL, RED, Finish.emissive(power=3))
     assert palette.matl(index)["_type"] == "_emit"
     assert palette.matl(200)["_type"] == "_diffuse"
+
+
+def test_see_through_is_glass_material_with_glass_finish_only() -> None:
+    palette = Palette()
+    window = palette.index_for(Material.GLASS, (150, 200, 230))
+    lamp = palette.index_for(Material.GLASS, (255, 250, 220), Finish.emissive())
+    shiny = palette.index_for(Material.WEAK_METAL, (150, 200, 230), Finish.glass())
+    paint = palette.index_for(Material.WEAK_METAL, RED)
+    assert palette.see_through() == {window}
+    assert {lamp, shiny, paint}.isdisjoint(palette.see_through())

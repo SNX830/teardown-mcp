@@ -4,9 +4,13 @@ Each view is what a camera outside the model sees, looking straight at one side,
 screen (top and bottom views: the vehicle front, -Z, at the top of the image). Views are true
 views, never mirrored: in the front view the model's right side (+X) appears on the LEFT of the
 image, as when facing a car.
+
+See-through voxels (glass, as it looks in game: docs/TEARDOWN_REFERENCE.md §3) are drawn as
+tinted layers over what lies behind them.
 """
 
-from dataclasses import dataclass
+from collections.abc import Collection
+from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Final
 
@@ -20,6 +24,9 @@ RGB = npt.NDArray[np.uint8]
 BACKGROUND: Final = (236, 236, 232)
 EDGE_DARKEN: Final = 0.55
 DEPTH_SHADE: Final = 0.35
+#: Opacity of one layer of see-through voxels in previews.
+GLASS_ALPHA: Final = 0.35
+PALETTE_SIZE: Final = 256
 
 
 class RenderError(VoxcoreError):
@@ -98,11 +105,17 @@ class ViewImage:
 
     Attributes:
         view: Which view.
-        indices: ``(height, width)`` palette index of the visible voxel, 0 where empty.
-        depth: ``(height, width)`` distance in voxels from the camera side of the grid to the
-            visible voxel, -1 where empty.
+        indices: ``(height, width)`` palette index of the first voxel that is not see-through,
+            0 where there is none.
+        depth: ``(height, width)`` distance in voxels from the camera side of the grid to that
+            voxel, -1 where there is none.
         columns: Grid index (along ``orientation.right``) of each image column.
         rows: Grid index (along ``orientation.up``) of each image row, top row first.
+        glass: ``(layers, height, width)`` palette indices of the see-through layers in front
+            of that voxel, nearest first (0 = no layer): a layer is a run of consecutive
+            see-through voxels along the line of sight. No layers without see-through voxels.
+        surface: ``(height, width)`` depth of the first voxel of any kind, -1 where empty, or
+            ``None`` when there is no see-through voxel (then it equals ``depth``).
     """
 
     view: View
@@ -110,6 +123,15 @@ class ViewImage:
     depth: npt.NDArray[np.int32]
     columns: npt.NDArray[np.int64]
     rows: npt.NDArray[np.int64]
+    glass: npt.NDArray[np.uint8] = field(
+        default_factory=lambda: np.zeros((0, 0, 0), dtype=np.uint8)
+    )
+    surface: npt.NDArray[np.int32] | None = None
+
+    @property
+    def outline_depth(self) -> npt.NDArray[np.int32]:
+        """Depth used for outlines: the first voxel of any kind."""
+        return self.depth if self.surface is None else self.surface
 
     @property
     def orientation(self) -> Orientation:
@@ -117,12 +139,35 @@ class ViewImage:
         return ORIENTATIONS[self.view]
 
 
-def ortho_view(grid: Grid, view: View) -> ViewImage:
-    """Compute the visible voxel of every pixel of an orthographic view.
+def see_through_mask(see_through: Collection[int]) -> npt.NDArray[np.bool_]:
+    """``(256,)`` table: whether each palette index is drawn see-through.
 
     Raises:
-        RenderError: For an unknown view or a 3/4 view (use ``buildup.render.iso``).
+        RenderError: For an index outside 1..255.
     """
+    table = np.zeros(PALETTE_SIZE, dtype=np.bool_)
+    for index in see_through:
+        if isinstance(index, bool) or not isinstance(index, int | np.integer):
+            raise RenderError(f"see-through palette indices must be integers, got {index!r}")
+        if not 0 < index < PALETTE_SIZE:
+            raise RenderError(f"see-through palette indices must be 1..255, got {index}")
+        table[int(index)] = True
+    return table
+
+
+def ortho_view(grid: Grid, view: View, see_through: Collection[int] = ()) -> ViewImage:
+    """Compute the visible voxel of every pixel of an orthographic view.
+
+    Args:
+        grid: The model.
+        view: An orthographic view.
+        see_through: Palette indices drawn see-through (glass); none by default.
+
+    Raises:
+        RenderError: For an unknown view, a 3/4 view (use ``buildup.render.iso``) or a bad
+            see-through index.
+    """
+    clear = see_through_mask(see_through)
     view = as_view(view)
     if view not in ORIENTATIONS:
         raise RenderError(f"{view.value} is a 3/4 view, not an orthographic view")
@@ -134,12 +179,14 @@ def ortho_view(grid: Grid, view: View) -> ViewImage:
         arr = arr[:, ::-1, :]
     if o.depth_sign < 0:
         arr = arr[:, :, ::-1]
-    filled = arr != EMPTY
-    hit = filled.any(axis=2)
-    first = np.argmax(filled, axis=2)
-    indices = np.take_along_axis(arr, first[:, :, None], axis=2)[:, :, 0]
-    indices = np.where(hit, indices, 0).astype(np.uint8)
-    depth = np.where(hit, first, -1).astype(np.int32)
+    glassy = clear[arr]
+    solid = (arr != EMPTY) & ~glassy
+    indices, depth = _first(arr, solid)
+    surface = None
+    glass = np.zeros((0, *depth.shape), dtype=np.uint8)
+    if glassy.any():
+        surface = _first(arr, arr != EMPTY)[1]
+        glass = _glass_layers(arr, glassy, depth)
     # Image layout: rows from top to bottom (up axis reversed), columns left to right.
     n_right, n_up = arr.shape[0], arr.shape[1]
     right_index = np.arange(n_right) if o.right_sign > 0 else np.arange(n_right)[::-1]
@@ -150,7 +197,44 @@ def ortho_view(grid: Grid, view: View) -> ViewImage:
         depth=depth.T[::-1, :].copy(),
         columns=right_index.astype(np.int64),
         rows=up_index[::-1].astype(np.int64),
+        glass=np.transpose(glass, (0, 2, 1))[:, ::-1, :].copy(),
+        surface=None if surface is None else surface.T[::-1, :].copy(),
     )
+
+
+def _first(
+    arr: Grid, mask: npt.NDArray[np.bool_]
+) -> tuple[npt.NDArray[np.uint8], npt.NDArray[np.int32]]:
+    """Palette index and depth of the first ``mask`` cell along the last axis (0, -1 if none)."""
+    hit = mask.any(axis=2)
+    first = np.argmax(mask, axis=2)
+    indices = np.take_along_axis(arr, first[:, :, None], axis=2)[:, :, 0]
+    return (
+        np.where(hit, indices, 0).astype(np.uint8),
+        np.where(hit, first, -1).astype(np.int32),
+    )
+
+
+def _glass_layers(
+    arr: Grid, glassy: npt.NDArray[np.bool_], depth: npt.NDArray[np.int32]
+) -> npt.NDArray[np.uint8]:
+    """See-through layers in front of ``depth`` (all of them where it is -1), nearest first."""
+    n = arr.shape[2]
+    limit = np.where(depth < 0, n, depth)
+    in_front = np.arange(n)[None, None, :] < limit[:, :, None]
+    before = np.zeros_like(glassy)
+    before[:, :, 1:] = glassy[:, :, :-1]
+    starts = glassy & ~before & in_front
+    count = int(starts.sum(axis=2).max())
+    layers = np.zeros((count, arr.shape[0], arr.shape[1]), dtype=np.uint8)
+    seen = np.zeros(depth.shape, dtype=np.int64)
+    for d in range(n):
+        here = starts[:, :, d]
+        if here.any():
+            rows, cols = np.nonzero(here)
+            layers[seen[rows, cols], rows, cols] = arr[rows, cols, d]
+            seen[here] += 1
+    return layers
 
 
 def color_table(colors: object) -> npt.NDArray[np.float64]:
@@ -176,13 +260,17 @@ def shade(image: ViewImage, colors: npt.NDArray[np.uint8], grid_depth: int) -> R
         grid_depth: Grid size along the view axis (for the depth shading range).
 
     Returns:
-        ``(height, width, 3)`` RGB array; empty pixels get ``BACKGROUND``.
+        ``(height, width, 3)`` RGB array; empty pixels get ``BACKGROUND``; each see-through
+        layer tints what lies behind it (opacity ``GLASS_ALPHA``).
     """
     table = color_table(colors)
     rgb = table[image.indices]
     factor = 1.0 - DEPTH_SHADE * np.clip(image.depth, 0, None) / max(1, grid_depth - 1)
     rgb = rgb * factor[:, :, None]
     rgb[image.depth < 0] = BACKGROUND
+    for layer in image.glass[::-1]:  # farthest layer first
+        tinted = rgb * (1.0 - GLASS_ALPHA) + table[layer] * GLASS_ALPHA
+        rgb = np.where((layer != EMPTY)[:, :, None], tinted, rgb)
     return np.clip(np.rint(rgb), 0, 255).astype(np.uint8)
 
 
@@ -193,9 +281,10 @@ def edges(image: ViewImage) -> tuple[npt.NDArray[np.bool_], npt.NDArray[np.bool_
         ``vertical`` of shape ``(height, width - 1)``: a line between columns ``c`` and ``c + 1``;
         ``horizontal`` of shape ``(height - 1, width)``: a line between rows ``r`` and ``r + 1``.
         A line is drawn where one side is empty and the other is not, or where the visible
-        voxels are more than one voxel apart in depth (a step in the surface).
+        voxels are more than one voxel apart in depth (a step in the surface). See-through
+        voxels count as surface here, so windows keep their outline.
     """
-    d = image.depth
+    d = image.outline_depth
 
     def boundary(a: npt.NDArray[np.int32], b: npt.NDArray[np.int32]) -> npt.NDArray[np.bool_]:
         fa, fb = a >= 0, b >= 0

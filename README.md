@@ -1,6 +1,6 @@
 # Buildup — an MCP server for Teardown voxel modding
 
-> **Status: pre-alpha (0.5.0).** The MCP server works for simple vehicles and props: a fresh
+> **Status: pre-alpha (0.6.0).** The MCP server works for simple vehicles and props: a fresh
 > Claude Code session built a drivable car with it. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Buildup is an [MCP](https://modelcontextprotocol.io/) server that lets an AI assistant (such as Claude

@@ -2,10 +2,9 @@
 
 Hand-off notes between sessions. Update at the end of every session (see `AGENTS.md` §4).
 
-- **Current version:** 0.5.0 (tag `v0.5.0`)
-- **Current milestone:** 0.6.0 — Modelling quality (implemented on branch
-  `feat/modelling-quality`; protocol G done, G2 re-test pending)
-- **Last milestone:** 0.5.0 — Coherence tools (released 2026-10-07)
+- **Current version:** 0.6.0 (tag `v0.6.0`)
+- **Current milestone:** 0.7.0 — Multi-part models (not started)
+- **Last milestone:** 0.6.0 — Modelling quality (released 2026-10-08)
 - **Repository:** https://github.com/SNX830/teardown-mcp (public)
 
 ## Done
